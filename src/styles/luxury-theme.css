@@ -1,0 +1,23 @@
+/* Luxury Theme - Matte Black & Gold */
+:root {
+  /* Primary Colors */
+  --luxury-black: #1a1a1a;
+  --luxury-charcoal: #2a2a2a;
+  --luxury-gold: #9B7E3A;
+  --luxury-gold-light: #B8963E;
+  --luxury-gold-dark: #7a6429;
+  
+  /* Secondary Colors */
+  --luxury-white: #ffffff;
+  --luxury-off-white: #f5f5f5;
+  --luxury-gray: #6b6b6b;
+  --luxury-gray-dark: #4a4a4a;
+  
+  /* Gradients */
+  --gold-gradient: linear-gradient(135deg, #9B7E3A 0%, #B8963E 50%, #9B7E3A 100%);
+}
+
+body {
+  background: var(--luxury-black);
+  color: var(--luxury-white);
+}
