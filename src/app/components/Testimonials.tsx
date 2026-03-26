@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
 import jamalMurrayImg from "figma:asset/ff2227f45b0c35ed60aa75a906e593f2a58a09f8.png";
 import daniloGallinariImg from "figma:asset/fe7d84f76a019371f04fbe8ee04027379dc29575.png";
 import garyHarrisImg from "figma:asset/51195d822f2cbe4bc41b2da03d05f544885cd030.png";
@@ -110,10 +111,41 @@ export function Testimonials() {
           </div>
         </div>
 
-        {/* Testimonials Grid */}
+        {/* Member testimonials */}
+        <div className="mb-4 text-center">
+          <h3 className="text-2xl md:text-3xl text-white mb-2 tracking-wide">What our members say</h3>
+          <p className="text-[#6b6b6b] text-sm max-w-xl mx-auto">
+            Elite training experiences from clients across industries
+          </p>
+        </div>
         <div className="grid md:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            null
+          {testimonials.map((testimonial) => (
+            <div
+              key={testimonial.name}
+              className="bg-[#1a1a1a] border border-[#9B7E3A]/20 p-8 flex flex-col"
+            >
+              <div className="flex gap-1 mb-4">
+                {Array.from({ length: testimonial.rating }).map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-[#9B7E3A] text-[#9B7E3A]" />
+                ))}
+              </div>
+              <p className="text-[#6b6b6b] text-base mb-6 leading-relaxed italic flex-grow">
+                &ldquo;{testimonial.quote}&rdquo;
+              </p>
+              <div className="pt-6 border-t border-[#9B7E3A]/20">
+                <div className="flex items-center gap-4">
+                  <ImageWithFallback
+                    src={testimonial.image}
+                    alt={testimonial.name}
+                    className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                  />
+                  <div>
+                    <div className="text-white mb-1">{testimonial.name}</div>
+                    <div className="text-[#9B7E3A] text-sm">{testimonial.role}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
 
