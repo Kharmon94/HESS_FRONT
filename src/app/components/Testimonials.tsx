@@ -1,9 +1,40 @@
 import { Star } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import jamalMurrayImg from "figma:asset/ff2227f45b0c35ed60aa75a906e593f2a58a09f8.png";
-import daniloGallinariImg from "figma:asset/fe7d84f76a019371f04fbe8ee04027379dc29575.png";
-import garyHarrisImg from "figma:asset/51195d822f2cbe4bc41b2da03d05f544885cd030.png";
-import kenyonMartinImg from "figma:asset/e67a258d5510d2db3a166498af2bea854be14def.png";
+import { useState } from "react";
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function InitialsAvatar({ name }: { name: string }) {
+  return (
+    <div
+      className="w-16 h-16 rounded-full flex-shrink-0 flex items-center justify-center border border-[#9B7E3A]/30 bg-[#1a1a1a] text-[#9B7E3A] text-sm font-medium"
+      aria-hidden
+    >
+      {initialsFromName(name)}
+    </div>
+  );
+}
+
+/** Remote headshots; falls back to initials if the URL fails (CORS, block, etc.). */
+function RemoteAvatar({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <InitialsAvatar name={name} />;
+  return (
+    <img
+      src={src}
+      alt={name}
+      className="w-16 h-16 rounded-full object-cover flex-shrink-0 bg-[#2a2a2a]"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 export function Testimonials() {
   const testimonials = [
@@ -53,7 +84,7 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <img src={kenyonMartinImg} alt="Kenyon Martin" className="w-16 h-16 rounded-full object-cover" />
+                <InitialsAvatar name="Kenyon Martin" />
                 <div>
                   <div className="text-white mb-1">Kenyon Martin</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Veteran</div>
@@ -69,7 +100,7 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <img src={daniloGallinariImg} alt="Danilo Gallinari" className="w-16 h-16 rounded-full object-cover" />
+                <InitialsAvatar name="Danilo Gallinari" />
                 <div>
                   <div className="text-white mb-1">Danilo Gallinari</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Veteran</div>
@@ -85,7 +116,7 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <img src={jamalMurrayImg} alt="Jamal Murray" className="w-16 h-16 rounded-full object-cover" />
+                <InitialsAvatar name="Jamal Murray" />
                 <div>
                   <div className="text-white mb-1">Jamal Murray</div>
                   <div className="text-[#9B7E3A] text-sm">NBA All Star</div>
@@ -101,7 +132,7 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <img src={garyHarrisImg} alt="Gary Harris" className="w-16 h-16 rounded-full object-cover" />
+                <InitialsAvatar name="Gary Harris" />
                 <div>
                   <div className="text-white mb-1">Gary Harris</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Player</div>
@@ -134,11 +165,7 @@ export function Testimonials() {
               </p>
               <div className="pt-6 border-t border-[#9B7E3A]/20">
                 <div className="flex items-center gap-4">
-                  <ImageWithFallback
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-                  />
+                  <RemoteAvatar src={testimonial.image} name={testimonial.name} />
                   <div>
                     <div className="text-white mb-1">{testimonial.name}</div>
                     <div className="text-[#9B7E3A] text-sm">{testimonial.role}</div>
