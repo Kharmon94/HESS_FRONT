@@ -1,5 +1,9 @@
 import { Star } from "lucide-react";
 import { useState } from "react";
+import kenyonMartinImg from "figma:asset/e67a258d5510d2db3a166498af2bea854be14def.png";
+import daniloGallinariImg from "figma:asset/fe7d84f76a019371f04fbe8ee04027379dc29575.png";
+import jamalMurrayImg from "figma:asset/ff2227f45b0c35ed60aa75a906e593f2a58a09f8.png";
+import garyHarrisImg from "figma:asset/51195d822f2cbe4bc41b2da03d05f544885cd030.png";
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -84,7 +88,11 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <InitialsAvatar name="Kenyon Martin" />
+                <img
+                  src={kenyonMartinImg}
+                  alt="Kenyon Martin"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0 bg-[#1a1a1a]"
+                />
                 <div>
                   <div className="text-white mb-1">Kenyon Martin</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Veteran</div>
@@ -100,7 +108,11 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <InitialsAvatar name="Danilo Gallinari" />
+                <img
+                  src={daniloGallinariImg}
+                  alt="Danilo Gallinari"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0 bg-[#1a1a1a]"
+                />
                 <div>
                   <div className="text-white mb-1">Danilo Gallinari</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Veteran</div>
@@ -116,7 +128,11 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <InitialsAvatar name="Jamal Murray" />
+                <img
+                  src={jamalMurrayImg}
+                  alt="Jamal Murray"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0 bg-[#1a1a1a]"
+                />
                 <div>
                   <div className="text-white mb-1">Jamal Murray</div>
                   <div className="text-[#9B7E3A] text-sm">NBA All Star</div>
@@ -132,7 +148,11 @@ export function Testimonials() {
             </p>
             <div className="pt-6 border-t border-[#9B7E3A]/20">
               <div className="flex items-center gap-4">
-                <InitialsAvatar name="Gary Harris" />
+                <img
+                  src={garyHarrisImg}
+                  alt="Gary Harris"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0 bg-[#1a1a1a]"
+                />
                 <div>
                   <div className="text-white mb-1">Gary Harris</div>
                   <div className="text-[#9B7E3A] text-sm">NBA Player</div>
