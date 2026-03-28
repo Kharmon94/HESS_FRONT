@@ -15,16 +15,11 @@ export function ResetPassword() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const emailParam = searchParams.get("email");
+    setEmail(searchParams.get("email") || "");
     const tokenParam =
       searchParams.get("token") || searchParams.get("reset_password_token") || "";
-
-    if (emailParam) setEmail(emailParam);
-    if (tokenParam) {
-      setToken(tokenParam);
-    } else {
-      setError("Invalid or expired reset link. Please request a new password reset.");
-    }
+    setToken(tokenParam);
+    setError("");
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,13 +96,18 @@ export function ResetPassword() {
             )}
           </div>
 
-          {error && !email && (
+          {!token && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-red-500 text-sm">{error}</p>
-                  <Link to="/portal" className="text-[#9B7E3A] text-sm hover:text-[#B8963E] transition-colors mt-2 inline-block">
+                  <p className="text-red-500 text-sm">
+                    Invalid or expired reset link. Please request a new password reset.
+                  </p>
+                  <Link
+                    to="/portal"
+                    className="text-[#9B7E3A] text-sm hover:text-[#B8963E] transition-colors mt-2 inline-block"
+                  >
                     Return to login page
                   </Link>
                 </div>
@@ -115,7 +115,7 @@ export function ResetPassword() {
             </div>
           )}
 
-          {email && token && (
+          {token && (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">

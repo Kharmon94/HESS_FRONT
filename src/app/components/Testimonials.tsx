@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import { Link } from "react-router";
 import { useState } from "react";
 import kenyonMartinImg from "figma:asset/e67a258d5510d2db3a166498af2bea854be14def.png";
 import daniloGallinariImg from "figma:asset/fe7d84f76a019371f04fbe8ee04027379dc29575.png";
@@ -201,12 +202,12 @@ export function Testimonials() {
           <p className="text-[#6b6b6b] mb-6">
             Join hundreds of successful clients who have achieved their goals
           </p>
-          <a
-            href="#pricing"
+          <Link
+            to="/#pricing"
             className="inline-block px-8 py-4 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-all duration-300"
           >
             Start Your Transformation
-          </a>
+          </Link>
         </div>
       </div>
     </section>

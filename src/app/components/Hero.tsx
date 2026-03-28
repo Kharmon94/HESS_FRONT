@@ -1,5 +1,3 @@
-import heroImage from "figma:asset/c4f3304497da9524267ce1acc77320922d90d2cc.png";
-import hessEliteLogo from "figma:asset/011d0f406da2b3a0da52e3f965ca543ab2f6d899.png";
 import { useState } from "react";
 import { InquiryModal } from "./InquiryModal";
 

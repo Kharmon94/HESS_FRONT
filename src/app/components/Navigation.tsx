@@ -1,11 +1,10 @@
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import hessEliteLogo from "figma:asset/011d0f406da2b3a0da52e3f965ca543ab2f6d899.png";
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
-  const location = useLocation();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm border-b border-[#9B7E3A]/20 bg-[#1a1a1a00]">

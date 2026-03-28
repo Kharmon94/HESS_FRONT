@@ -498,7 +498,12 @@ export function PortalDashboard() {
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         clientId={currentUser.id}
-        clientName={`${currentUser.firstName.charAt(0)}. ${currentUser.lastName}`}
+        clientName={
+          currentUser.firstName?.trim() && currentUser.lastName?.trim()
+            ? `${currentUser.firstName.trim().charAt(0)}. ${currentUser.lastName.trim()}`
+            : [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ").trim() ||
+              currentUser.email
+        }
         sessions={sessions}
         onBooked={loadSessions}
       />

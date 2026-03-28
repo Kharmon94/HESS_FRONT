@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
 
@@ -18,7 +18,14 @@ interface TimeSlot {
   available: boolean;
 }
 
-export function BookingModal({ isOpen, onClose, clientId, clientName }: BookingModalProps) {
+export function BookingModal({
+  isOpen,
+  onClose,
+  clientId,
+  clientName,
+  sessions,
+  onBooked,
+}: BookingModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [sessionType, setSessionType] = useState<"Training" | "MATrX">("Training");
@@ -52,16 +59,16 @@ export function BookingModal({ isOpen, onClose, clientId, clientName }: BookingM
     
     // Get all sessions for this date
     const sessionsOnDate = allSessions.filter(
-      s => s.date === dateString && s.status !== "cancelled"
+      (s: Session) => s.date === dateString && s.status !== "cancelled"
     );
 
-    // Check if any session conflicts with this time slot
-    const startHour = parseInt(startTime.split(":")[0]);
-    const endTime = `${(startHour + 1).toString().padStart(2, "0")}:00`;
+    const startHour = parseInt(startTime.split(":")[0], 10);
 
-    return !sessionsOnDate.some(session => {
-      const sessionStart = parseInt(session.startTime.split(":")[0]) + parseInt(session.startTime.split(":")[1]) / 60;
-      const sessionEnd = parseInt(session.endTime.split(":")[0]) + parseInt(session.endTime.split(":")[1]) / 60;
+    return !sessionsOnDate.some((session: Session) => {
+      const st = session.startTime || "00:00";
+      const et = session.endTime || "01:00";
+      const sessionStart = parseInt(st.split(":")[0], 10) + parseInt(st.split(":")[1] || "0", 10) / 60;
+      const sessionEnd = parseInt(et.split(":")[0], 10) + parseInt(et.split(":")[1] || "0", 10) / 60;
       const slotStart = startHour;
       const slotEnd = startHour + 1;
 
