@@ -76,7 +76,6 @@ export function ClientPortalPage() {
         });
         setStoredToken(res.token);
         login(userFromApi(res.user));
-        alert(`Welcome to Kaboom Life! Your account has been created successfully with the ${packageName} package.`);
         navigate("/portal/dashboard");
       } catch (err) {
         setSignupError(err instanceof Error ? err.message : "Sign up failed.");
@@ -440,23 +439,6 @@ export function ClientPortalPage() {
                   <p className="text-[#9B9B9B] text-center text-sm">
                     Check your inbox and click the link to reset your password.
                   </p>
-                </div>
-
-                {/* Demo Link - In production this would be in the email */}
-                <div className="bg-[#1a1a1a] border border-[#3a3a3a] p-4 rounded-lg mb-6">
-                  <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-2 text-center">Demo Only</p>
-                  <p className="text-[#9B9B9B] text-xs text-center mb-3">
-                    In production, this link would be sent to your email. Click below to simulate:
-                  </p>
-                  <button
-                    onClick={() => {
-                      closeForgotPasswordModal();
-                      navigate(`/reset-password?email=${encodeURIComponent(resetEmail)}&token=demo-token-${Date.now()}`);
-                    }}
-                    className="w-full px-4 py-2 bg-[#9B7E3A]/20 border border-[#9B7E3A] text-[#9B7E3A] text-sm hover:bg-[#9B7E3A]/30 transition-colors"
-                  >
-                    Go to Reset Password Page
-                  </button>
                 </div>
 
                 <button

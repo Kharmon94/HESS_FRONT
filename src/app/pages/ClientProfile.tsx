@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { api, type ApiUser } from "@/services/api";
-import { ArrowLeft, Phone, Mail, Calendar, TrendingUp, Dumbbell, Target, FileText, Plus, CreditCard, MapPin, X, Lock } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar, TrendingUp, Dumbbell, Target, FileText, Plus, CreditCard, MapPin } from "lucide-react";
 
 interface WorkoutSession {
   id: string;
@@ -29,13 +29,8 @@ interface Client {
   sessionsCompleted: number;
   sessionsRemaining: number;
   lastActivity: string;
-  paymentMethod: {
-    type: string;
-    last4: string;
-    fullNumber: string;
-    expiryDate: string;
-    cvc: string;
-  };
+  /** Non-sensitive summary from CRM (e.g. Stripe brand / last4); never full PAN or CVC. */
+  paymentMethodSummary: string;
   address: {
     street: string;
     city: string;
@@ -60,13 +55,7 @@ function clientFromApi(u: ApiUser): Client {
     sessionsCompleted: u.sessions_completed ?? 0,
     sessionsRemaining: u.sessions_remaining ?? 0,
     lastActivity: "—",
-    paymentMethod: {
-      type: "On file",
-      last4: "—",
-      fullNumber: u.payment_method || "—",
-      expiryDate: "—",
-      cvc: "—",
-    },
+    paymentMethodSummary: u.payment_method?.trim() || "Not on file",
     address: {
       street: addr[0] || "",
       city: addr[1] || "",
@@ -82,10 +71,6 @@ function clientFromApi(u: ApiUser): Client {
 export function ClientProfile() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<"overview" | "workouts" | "assessments">("overview");
-  const [showCardModal, setShowCardModal] = useState(false);
-  const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -102,30 +87,6 @@ export function ClientProfile() {
       .catch(() => setClient(null))
       .finally(() => setLoading(false));
   }, [id]);
-
-  const handleCardClick = () => {
-    setShowCardModal(true);
-    setPassword("");
-    setPasswordError("");
-    setIsUnlocked(false);
-  };
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === "FuckSnoopy") {
-      setIsUnlocked(true);
-      setPasswordError("");
-    } else {
-      setPasswordError("Incorrect password");
-    }
-  };
-
-  const closeModal = () => {
-    setShowCardModal(false);
-    setPassword("");
-    setPasswordError("");
-    setIsUnlocked(false);
-  };
 
   if (loading) {
     return (
@@ -295,26 +256,19 @@ export function ClientProfile() {
             <div className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[#9B7E3A] uppercase tracking-wider text-sm">Payment Information</h3>
-                <button className="text-[#9B7E3A] hover:text-white">
-                  <CreditCard className="w-5 h-5" />
-                </button>
+                <CreditCard className="w-5 h-5 text-[#9B7E3A]" aria-hidden />
               </div>
               <div className="space-y-4">
-                <button 
-                  onClick={handleCardClick}
-                  className="w-full flex items-start gap-3 p-4 bg-[#1a1a1a] border border-[#3a3a3a] hover:border-[#9B7E3A] transition-colors cursor-pointer text-left"
-                >
+                <div className="w-full flex items-start gap-3 p-4 bg-[#1a1a1a] border border-[#3a3a3a]">
                   <CreditCard className="w-5 h-5 text-[#9B7E3A] mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-white">{client.paymentMethod.type}</p>
-                    <p className="text-[#9B9B9B] text-sm">•••• •••• •••• {client.paymentMethod.last4}</p>
-                    <p className="text-[#9B9B9B] text-sm">Expires {client.paymentMethod.expiryDate}</p>
-                    <p className="text-[#9B7E3A] text-xs mt-2 flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
-                      Click to view full details
+                    <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-1">On file (summary)</p>
+                    <p className="text-white font-mono text-sm">{client.paymentMethodSummary}</p>
+                    <p className="text-[#6b6b6b] text-xs mt-2">
+                      Card details are managed in your payment processor. Full numbers are never shown here.
                     </p>
                   </div>
-                </button>
+                </div>
                 <div className="flex items-start gap-3 p-4 bg-[#1a1a1a] border border-[#3a3a3a]">
                   <MapPin className="w-5 h-5 text-[#9B7E3A] mt-0.5 flex-shrink-0" />
                   <div>
@@ -486,86 +440,6 @@ export function ClientProfile() {
         )}
       </div>
 
-      {/* Card Modal */}
-      {showCardModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeModal}>
-          <div className="bg-[#2a2a2a] border border-[#3a3a3a] p-8 rounded-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[#9B7E3A] uppercase tracking-wider text-sm">
-                {isUnlocked ? "Full Card Details" : "Restricted Access"}
-              </h3>
-              <button className="text-[#9B7E3A] hover:text-white transition-colors" onClick={closeModal}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!isUnlocked ? (
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                <div className="flex items-center justify-center p-6 bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg">
-                  <Lock className="w-12 h-12 text-[#9B7E3A]" />
-                </div>
-                <div>
-                  <label className="block text-[#9B9B9B] text-sm mb-2">Enter Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#9B9B9B] focus:border-[#9B7E3A] focus:outline-none transition-colors"
-                    placeholder="Enter password to unlock"
-                    autoFocus
-                  />
-                  {passwordError && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center gap-2">
-                      <X className="w-4 h-4" />
-                      {passwordError}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  className="w-full px-6 py-3 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#9B7E3A]/80 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Lock className="w-4 h-4" />
-                  Unlock
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-6">
-                {/* Full Card Details */}
-                <div className="bg-[#1a1a1a] border border-[#9B7E3A] p-6 rounded-lg">
-                  <CreditCard className="w-8 h-8 text-[#9B7E3A] mb-4" />
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-1">Card Type</p>
-                      <p className="text-white text-lg">{client.paymentMethod.type}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-1">Card Number</p>
-                      <p className="text-white text-lg font-mono tracking-wider">{client.paymentMethod.fullNumber}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-1">Expiration</p>
-                        <p className="text-white">{client.paymentMethod.expiryDate}</p>
-                      </div>
-                      <div>
-                        <p className="text-[#9B9B9B] text-xs uppercase tracking-wider mb-1">CVC</p>
-                        <p className="text-white font-mono">{client.paymentMethod.cvc}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="w-full px-6 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white hover:border-[#9B7E3A] transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -72,7 +72,8 @@ export function AdminCalendar() {
       .catch(() => setClientsForCalendar([]));
   }, []);
 
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 2, 8)); // March 8, 2026
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [view, setView] = useState<CalendarView>("week");
   const [showNewEventModal, setShowNewEventModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
@@ -183,9 +184,15 @@ export function AdminCalendar() {
     try {
       await api.updateTrainingSession(sessionId, { status: "scheduled" });
       patchSessionLocal(sessionId, { status: "scheduled" });
-      alert(`Session with ${session.clientName} on ${session.date} has been approved.`);
+      setBanner({
+        type: "success",
+        message: `Session with ${session.clientName} on ${session.date} has been approved.`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Update failed",
+      });
     }
   };
 
@@ -195,9 +202,15 @@ export function AdminCalendar() {
     try {
       await api.updateTrainingSession(sessionId, { status: "cancelled" });
       patchSessionLocal(sessionId, { status: "cancelled" });
-      alert(`Session with ${session.clientName} on ${session.date} has been rejected.`);
+      setBanner({
+        type: "success",
+        message: `Session with ${session.clientName} on ${session.date} has been rejected.`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Update failed",
+      });
     }
   };
 
@@ -207,11 +220,15 @@ export function AdminCalendar() {
     try {
       await api.updateTrainingSession(sessionId, { status: "cancelled" });
       patchSessionLocal(sessionId, { status: "cancelled" });
-      alert(
-        `Cancellation approved. Session with ${session.clientName} on ${session.date} has been removed from the schedule.`
-      );
+      setBanner({
+        type: "success",
+        message: `Cancellation approved. Session with ${session.clientName} on ${session.date} is now cancelled.`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Update failed",
+      });
     }
   };
 
@@ -237,9 +254,15 @@ export function AdminCalendar() {
     try {
       await api.deleteTrainingSession(sessionId);
       setSessionList((prev) => prev.filter((s) => s.id !== sessionId));
-      alert(`Session with ${session.clientName} on ${session.date} has been deleted.`);
+      setBanner({
+        type: "success",
+        message: `Session with ${session.clientName} on ${session.date} has been deleted.`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Delete failed",
+      });
     }
   };
 
@@ -266,7 +289,7 @@ export function AdminCalendar() {
 
     const selectedClient = clientsForCalendar.find((c) => c.id === newEventForm.clientId);
     if (!selectedClient) {
-      alert("Please select a client");
+      setBanner({ type: "error", message: "Please select a client." });
       return;
     }
 
@@ -297,11 +320,15 @@ export function AdminCalendar() {
         status: (ts.status as Session["status"]) || "scheduled",
       };
       setSessionList((prev) => [...prev, newS]);
-      alert(
-        `Session created!\n\nClient: ${clientDisplayName}\nDate: ${newEventForm.date}\nTime: ${newEventForm.startTime} - ${newEventForm.endTime}\nSession Type: ${newEventForm.sessionType}\nNotes: ${newEventForm.notes || "None"}\n\nThis session will now appear in ${selectedClient.firstName}'s client dashboard.`
-      );
+      setBanner({
+        type: "success",
+        message: `Session created for ${clientDisplayName} on ${newEventForm.date} (${newEventForm.startTime}–${newEventForm.endTime}).`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not create session");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not create session",
+      });
       return;
     }
 
@@ -321,7 +348,7 @@ export function AdminCalendar() {
 
     const selectedClient = clientsForCalendar.find((c) => c.id === editEventForm.clientId);
     if (!selectedClient) {
-      alert("Please select a client");
+      setBanner({ type: "error", message: "Please select a client." });
       return;
     }
 
@@ -350,11 +377,15 @@ export function AdminCalendar() {
         notes: ts.notes || editEventForm.notes,
         status: (ts.status as Session["status"]) || "scheduled",
       });
-      alert(
-        `Session updated!\n\nClient: ${clientDisplayName}\nDate: ${editEventForm.date}\nTime: ${editEventForm.startTime} - ${editEventForm.endTime}\nSession Type: ${editEventForm.sessionType}\nNotes: ${editEventForm.notes || "None"}\n\nThis session will now appear in ${selectedClient.firstName}'s client dashboard.`
-      );
+      setBanner({
+        type: "success",
+        message: `Session updated for ${clientDisplayName} on ${editEventForm.date} (${editEventForm.startTime}–${editEventForm.endTime}).`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not update session");
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not update session",
+      });
       return;
     }
 
@@ -391,6 +422,25 @@ export function AdminCalendar() {
 
   return (
     <div className="bg-[#2a2a2a] border border-[#9B7E3A]/20">
+      {banner && (
+        <div
+          className={`flex items-start justify-between gap-4 border-b px-6 py-3 text-sm ${
+            banner.type === "success"
+              ? "border-[#9B7E3A]/30 bg-[#9B7E3A]/10 text-[#e8dcc4]"
+              : "border-red-500/30 bg-red-950/30 text-red-200"
+          }`}
+          role="status"
+        >
+          <p className="flex-1 pr-2">{banner.message}</p>
+          <button
+            type="button"
+            onClick={() => setBanner(null)}
+            className="shrink-0 uppercase tracking-wider text-xs opacity-80 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Calendar Header */}
       <div className="p-6 border-b border-[#9B7E3A]/20">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -952,7 +1002,11 @@ export function AdminCalendar() {
                         });
                       }
                     } else {
-                      alert("Only cancelled sessions can be deleted. Cancel the session first if you want to remove it.");
+                      setBanner({
+                        type: "error",
+                        message:
+                          "Only cancelled sessions can be deleted. Cancel the session first if you want to remove it.",
+                      });
                     }
                   }}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2"

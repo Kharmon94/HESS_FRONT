@@ -8,7 +8,7 @@ import { api } from "@/services/api";
 
 export function PortalDashboard() {
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, refreshUser } = useAuth();
   const [showAccountInfo, setShowAccountInfo] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -17,6 +17,8 @@ export function PortalDashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [accountNotice, setAccountNotice] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
 
   const loadSessions = useCallback(() => {
@@ -82,40 +84,55 @@ export function PortalDashboard() {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, status: "pending_cancellation" } : s))
       );
-      alert("Cancellation request submitted. The admin will review your request.");
+      setAccountNotice({
+        type: "ok",
+        text: "Cancellation request submitted. The admin will review your request.",
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not submit cancellation.");
+      setAccountNotice({
+        type: "err",
+        text: err instanceof Error ? err.message : "Could not submit cancellation.",
+      });
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError("");
 
-    // Validate current password (in production, this would be checked against the database)
     if (!currentPassword) {
       setPasswordError("Please enter your current password");
       return;
     }
 
-    // Validate new passwords match
     if (newPassword !== confirmNewPassword) {
       setPasswordError("New passwords do not match");
       return;
     }
 
-    // Validate password strength (basic example)
     if (newPassword.length < 8) {
       setPasswordError("New password must be at least 8 characters long");
       return;
     }
 
-    // Mock password change - in production this would call an API
-    alert("Password changed successfully!");
-    setIsChangingPassword(false);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmNewPassword("");
+    setPasswordSubmitting(true);
+    try {
+      await api.updatePassword({
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: confirmNewPassword,
+      });
+      await refreshUser();
+      setIsChangingPassword(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setAccountNotice({ type: "ok", text: "Password updated successfully." });
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Could not update password.");
+    } finally {
+      setPasswordSubmitting(false);
+    }
   };
 
   const handleCancelPasswordChange = () => {
@@ -174,6 +191,26 @@ export function PortalDashboard() {
             </button>
           </div>
         </div>
+
+        {accountNotice && (
+          <div
+            className={`mb-8 flex items-start justify-between gap-4 border px-4 py-3 ${
+              accountNotice.type === "ok"
+                ? "border-[#9B7E3A]/40 bg-[#9B7E3A]/10 text-[#e8dcc4]"
+                : "border-red-500/40 bg-red-950/30 text-red-200"
+            }`}
+            role="status"
+          >
+            <p className="text-sm flex-1">{accountNotice.text}</p>
+            <button
+              type="button"
+              onClick={() => setAccountNotice(null)}
+              className="text-xs uppercase tracking-wider opacity-80 hover:opacity-100 shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Account Information Panel */}
         {showAccountInfo && (
@@ -291,9 +328,10 @@ export function PortalDashboard() {
                           <div className="flex gap-3">
                             <button
                               type="submit"
-                              className="flex-1 px-4 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-all duration-300 text-sm"
+                              disabled={passwordSubmitting}
+                              className="flex-1 px-4 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-all duration-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Update Password
+                              {passwordSubmitting ? "Updating…" : "Update Password"}
                             </button>
                             <button
                               type="button"

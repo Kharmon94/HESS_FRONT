@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
@@ -31,6 +31,11 @@ export function BookingModal({
   const [sessionType, setSessionType] = useState<"Training" | "MATrX">("Training");
   const [notes, setNotes] = useState("");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) setBookingError(null);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -142,6 +147,7 @@ export function BookingModal({
   // Handle booking submission
   const handleBooking = async () => {
     if (!selectedDate || !selectedTime) return;
+    setBookingError(null);
 
     const dateString = selectedDate.toISOString().split("T")[0];
     const startHour = parseInt(selectedTime.split(":")[0], 10);
@@ -161,7 +167,7 @@ export function BookingModal({
       });
       onBooked?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Booking failed");
+      setBookingError(err instanceof Error ? err.message : "Booking failed");
       return;
     }
 
@@ -193,6 +199,14 @@ export function BookingModal({
         </div>
 
         <div className="p-6">
+          {bookingError && (
+            <div
+              className="mb-4 border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
+              role="alert"
+            >
+              {bookingError}
+            </div>
+          )}
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Calendar Section */}
             <div>

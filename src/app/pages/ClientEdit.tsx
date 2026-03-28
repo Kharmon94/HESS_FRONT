@@ -60,6 +60,7 @@ export function ClientEdit() {
   const [client, setClient] = useState<ClientEditData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -101,6 +102,7 @@ export function ClientEdit() {
 
   const handleSave = async () => {
     if (!client) return;
+    setSaveError(null);
     const parts = client.name.trim().split(/\s+/);
     const firstName = parts[0] || "";
     const lastName = parts.slice(1).join(" ");
@@ -119,11 +121,10 @@ export function ClientEdit() {
           .filter(Boolean)
           .join(", "),
       });
-      alert(`Client information updated successfully for ${client.name}`);
       setHasUnsavedChanges(false);
       navigate(`/admin/client/${client.id}`);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Save failed");
+      setSaveError(e instanceof Error ? e.message : "Save failed");
     }
   };
 
@@ -138,6 +139,14 @@ export function ClientEdit() {
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
+        {saveError && (
+          <div
+            className="mb-6 border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
+            role="alert"
+          >
+            {saveError}
+          </div>
+        )}
         {/* Back Button - More Prominent */}
         <div className="mb-6">
           <button

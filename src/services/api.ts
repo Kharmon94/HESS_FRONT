@@ -144,6 +144,17 @@ export const api = {
     });
   },
 
+  updatePassword(payload: {
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+  }) {
+    return request<{ user: ApiUser }>("/api/v1/auth/password", {
+      method: "PUT",
+      body: JSON.stringify({ user: payload }),
+    });
+  },
+
   createInquiry(payload: {
     name?: string;
     email: string;
