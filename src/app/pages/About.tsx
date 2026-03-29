@@ -135,8 +135,8 @@ export function About() {
             <div className="relative h-[500px]">
               <ImageWithFallback
                 src={steveHessImage}
-                alt="Steve - Founder and Lead Coach"
-                className="w-full h-full object-cover border border-[#9B7E3A]/20"
+                alt="Steve Hess, founder and lead coach of Hess Elite"
+                className="w-full h-full object-cover object-top border border-[#9B7E3A]/20"
               />
             </div>
           </div>
