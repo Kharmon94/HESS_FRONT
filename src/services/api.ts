@@ -133,6 +133,11 @@ async function request<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw new Error(
+        `API returned ${res.status} (service unreachable). On Railway this usually means the container is not listening on the PORT Railway assigns — redeploy the API after updating the Dockerfile so Puma binds 0.0.0.0 and uses $PORT. Check API deploy logs. After the API responds, set FRONTEND_ORIGIN for CORS.`
+      );
+    }
     const msg =
       (data.error as string) ||
       (data.errors as string[])?.join(", ") ||
