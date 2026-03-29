@@ -273,4 +273,11 @@ export const api = {
   deleteAdminClient(id: string) {
     return request<unknown>(`/api/v1/admin/clients/${id}`, { method: "DELETE" });
   },
+
+  inviteAdmin(email: string) {
+    return request<{ email: string; role: string }>("/api/v1/admin/invitations", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
 };

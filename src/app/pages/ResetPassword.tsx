@@ -13,6 +13,7 @@ export function ResetPassword() {
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
+  const isInvite = searchParams.get("invite") === "1";
 
   useEffect(() => {
     setEmail(searchParams.get("email") || "");
@@ -63,9 +64,13 @@ export function ResetPassword() {
               <CheckCircle className="w-16 h-16 text-[#9B7E3A]" />
             </div>
             
-            <h2 className="text-2xl text-white mb-4">Password Reset Successful!</h2>
+            <h2 className="text-2xl text-white mb-4">
+              {isInvite ? "You're all set!" : "Password Reset Successful!"}
+            </h2>
             <p className="text-[#6b6b6b] mb-8">
-              Your password has been successfully reset. You can now log in with your new password.
+              {isInvite
+                ? "Your admin password is set. You can sign in to the portal with your new password."
+                : "Your password has been successfully reset. You can now log in with your new password."}
             </p>
 
             <Link
@@ -88,7 +93,9 @@ export function ResetPassword() {
             <div className="flex items-center justify-center p-6 bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg mb-6 mx-auto w-fit">
               <Lock className="w-12 h-12 text-[#9B7E3A]" />
             </div>
-            <h2 className="text-2xl text-white mb-2">Reset Your Password</h2>
+            <h2 className="text-2xl text-white mb-2">
+              {isInvite ? "Set your admin password" : "Reset Your Password"}
+            </h2>
             {email && (
               <p className="text-[#6b6b6b]">
                 Setting new password for <span className="text-[#9B7E3A]">{email}</span>
@@ -128,7 +135,7 @@ export function ResetPassword() {
 
               <div>
                 <label htmlFor="newPassword" className="block text-white mb-2">
-                  New Password
+                  {isInvite ? "Password" : "New Password"}
                 </label>
                 <div className="relative">
                   <input
@@ -153,7 +160,7 @@ export function ResetPassword() {
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-white mb-2">
-                  Confirm New Password
+                  {isInvite ? "Confirm password" : "Confirm New Password"}
                 </label>
                 <div className="relative">
                   <input
@@ -180,7 +187,7 @@ export function ResetPassword() {
                 className="w-full py-4 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-all duration-300 flex items-center justify-center gap-2"
               >
                 <Lock className="w-5 h-5" />
-                Reset Password
+                {isInvite ? "Set password" : "Reset Password"}
               </button>
             </form>
           )}

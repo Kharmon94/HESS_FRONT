@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Search, Users, TrendingUp, Calendar, Phone, Mail, MessageSquare, CheckCircle, XCircle, Clock, Edit, X } from "lucide-react";
+import { Search, Users, TrendingUp, Calendar, Phone, Mail, MessageSquare, CheckCircle, XCircle, Clock, Edit, X, UserPlus } from "lucide-react";
 import { AdminCalendar } from "../components/AdminCalendar";
 import { HoursWorked } from "../components/HoursWorked";
 import { useInquiries } from "../contexts/InquiryContext";
@@ -38,6 +38,9 @@ export function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
   const [activeTab, setActiveTab] = useState<"calendar" | "clients" | "inquiries" | "hours">("calendar");
   const [clients, setClients] = useState<Client[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteFeedback, setInviteFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
     api
@@ -96,6 +99,32 @@ export function AdminDashboard() {
     updateInquiryStatus(inquiryId, newStatus);
   };
 
+  const handleInviteAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteFeedback(null);
+    const trimmed = inviteEmail.trim();
+    if (!trimmed) {
+      setInviteFeedback({ type: "err", text: "Enter an email address." });
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      await api.inviteAdmin(trimmed);
+      setInviteFeedback({
+        type: "ok",
+        text: "Invitation sent. They will receive an email with a link to set their password.",
+      });
+      setInviteEmail("");
+    } catch (err) {
+      setInviteFeedback({
+        type: "err",
+        text: err instanceof Error ? err.message : "Could not send invitation.",
+      });
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -138,6 +167,49 @@ export function AdminDashboard() {
             </div>
             <p className="text-[#9B9B9B] text-xs lg:text-sm">New Inquiries</p>
           </div>
+        </div>
+
+        {/* Invite admin */}
+        <div className="mb-8 bg-[#2a2a2a] border border-[#9B7E3A]/20 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <UserPlus className="w-6 h-6 text-[#9B7E3A]" />
+            <div>
+              <h2 className="text-lg text-white font-medium">Invite admin</h2>
+              <p className="text-[#9B9B9B] text-sm">
+                Send an email with a link to set a password. New users are created as admins; existing clients are promoted.
+              </p>
+            </div>
+          </div>
+          <form onSubmit={handleInviteAdmin} className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="flex-1">
+              <label htmlFor="invite-admin-email" className="sr-only">
+                Email
+              </label>
+              <input
+                id="invite-admin-email"
+                type="email"
+                autoComplete="email"
+                placeholder="colleague@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#9B9B9B] focus:outline-none focus:border-[#9B7E3A]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={inviteLoading}
+              className="px-6 py-3 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors disabled:opacity-50 font-medium"
+            >
+              {inviteLoading ? "Sending…" : "Send invite"}
+            </button>
+          </form>
+          {inviteFeedback && (
+            <p
+              className={`mt-3 text-sm ${inviteFeedback.type === "ok" ? "text-green-400" : "text-red-400"}`}
+            >
+              {inviteFeedback.text}
+            </p>
+          )}
         </div>
 
         {/* Main Tabs Navigation */}
