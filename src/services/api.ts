@@ -1,10 +1,17 @@
 const TOKEN_KEY = "hess_auth_token";
 
-function baseUrl(): string {
-  const env = import.meta.env.VITE_API_URL as string | undefined;
-  if (env && env.length > 0) return env.replace(/\/$/, "");
+/**
+ * API origin for JSON requests. In production builds, `VITE_API_URL` must be set at **build time**
+ * (e.g. Railway/Vercel env var). If it is missing, requests would go to the SPA host (`/api/...`)
+ * and never hit Rails — no server logs and login always fails.
+ */
+function apiBaseUrl(): string {
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (raw) return raw.replace(/\/$/, "");
   if (import.meta.env.DEV) return "http://localhost:3000";
-  return "";
+  throw new Error(
+    "VITE_API_URL is not set. Rebuild the frontend with VITE_API_URL set to your Rails API origin (no trailing slash), e.g. https://your-api.up.railway.app"
+  );
 }
 
 export function getStoredToken(): string | null {
@@ -70,7 +77,7 @@ async function request<T>(
   path: string,
   init: RequestInit & { token?: string | null } = {}
 ): Promise<T> {
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${apiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(init.headers as Record<string, string>),

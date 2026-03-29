@@ -88,8 +88,15 @@ export function ClientPortalPage() {
         login(u);
         if (u.role === "admin") navigate("/admin");
         else navigate("/portal/dashboard");
-      } catch {
-        setLoginError("The email or password you entered is incorrect. Please try again.");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const looksLikeBadCredentials =
+          /invalid|incorrect|unauthorized/i.test(msg) || /\b401\b/.test(msg);
+        setLoginError(
+          looksLikeBadCredentials
+            ? "The email or password you entered is incorrect. Please try again."
+            : msg || "Unable to sign in. Check your connection and that the app was built with VITE_API_URL pointing at your API."
+        );
       }
     }
   };
