@@ -132,7 +132,7 @@ export function About() {
                 </p>
               </div>
             </div>
-            <div className="relative h-[500px]">
+            <div className="relative h-[575px]">
               <ImageWithFallback
                 src={steveHessImage}
                 alt="Steve Hess, founder and lead coach of Hess Elite"
