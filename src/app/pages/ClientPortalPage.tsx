@@ -2,7 +2,7 @@ import { Lock, Calendar, BarChart3, MessageSquare, Mail, X, CheckCircle } from "
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
-import { api, setStoredToken } from "@/services/api";
+import { api, setStoredToken, getConfiguredApiBaseForDisplay } from "@/services/api";
 import { userFromApi } from "@/utils/mapUser";
 
 export function ClientPortalPage() {
@@ -329,6 +329,12 @@ export function ClientPortalPage() {
                     <div className="p-4 bg-red-500/10 border border-red-500/30">
                       <p className="text-red-400 text-sm text-center">{signupError}</p>
                     </div>
+                  )}
+
+                  {(import.meta.env.DEV || import.meta.env.VITE_SHOW_API_URL === "true") && (
+                    <p className="text-[#5a5a5a] text-[11px] text-center font-mono break-all px-2">
+                      API base: {getConfiguredApiBaseForDisplay()}
+                    </p>
                   )}
 
                   <button

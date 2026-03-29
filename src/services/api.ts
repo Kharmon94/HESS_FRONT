@@ -14,6 +14,23 @@ function apiBaseUrl(): string {
   );
 }
 
+/** For support UI only — does not throw when `VITE_API_URL` is missing (production misconfig). */
+export function getConfiguredApiBaseForDisplay(): string {
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (raw) return raw.replace(/\/$/, "");
+  if (import.meta.env.DEV) return "http://localhost:3000 (default when VITE_API_URL unset)";
+  return "not set — rebuild frontend with VITE_API_URL";
+}
+
+function assertBrowserCanReachApi(base: string): void {
+  if (typeof window === "undefined") return;
+  if (window.location.protocol === "https:" && base.startsWith("http://")) {
+    throw new Error(
+      "Mixed content: this page is HTTPS but VITE_API_URL uses http://. The browser will block the request. Use https:// for your API URL (e.g. your Railway public HTTPS URL)."
+    );
+  }
+}
+
 export function getStoredToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -77,7 +94,8 @@ async function request<T>(
   path: string,
   init: RequestInit & { token?: string | null } = {}
 ): Promise<T> {
-  const url = `${apiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const base = apiBaseUrl();
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(init.headers as Record<string, string>),
@@ -89,7 +107,21 @@ async function request<T>(
   const token = init.token !== undefined ? init.token : getStoredToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(url, { ...init, headers });
+  assertBrowserCanReachApi(base);
+
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, headers });
+  } catch (e) {
+    const browserMsg = e instanceof Error ? e.message : "Network error";
+    throw new Error(
+      `${browserMsg} — could not reach ${url}. ` +
+        (import.meta.env.DEV
+          ? "Start the Rails API (e.g. bin/rails server on port 3000) or set VITE_API_URL."
+          : "Use your API’s public https URL in VITE_API_URL (not a private/internal hostname). On the API, set FRONTEND_ORIGIN to this site’s exact origin (https + host, no path). For www vs apex, list both comma-separated. Redeploy the API after changing CORS.")
+    );
+  }
+
   const text = await res.text();
   let data: Record<string, unknown> = {};
   if (text) {
