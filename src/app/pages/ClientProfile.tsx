@@ -150,9 +150,12 @@ export function ClientProfile() {
               >
                 Edit Profile
               </Link>
-              <button className="px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors">
-                Message Client
-              </button>
+              <a
+                href={`mailto:${encodeURIComponent(client.email)}`}
+                className="inline-flex items-center justify-center px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors"
+              >
+                Send Email
+              </a>
             </div>
           </div>
         </div>

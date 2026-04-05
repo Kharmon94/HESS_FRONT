@@ -46,13 +46,24 @@ export function PortalDashboard() {
     loadSessions();
   }, [loadSessions]);
 
+  /** Awaiting admin approval (§2 Calendar note) — shown in dedicated module, not mixed into upcoming list. */
+  const pendingBookingSessions = useMemo(() => {
+    if (!currentUser) return [];
+    return sessions
+      .filter((s) => s.clientId === currentUser.id && s.status === "pending")
+      .sort(
+        (a, b) =>
+          new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime()
+      );
+  }, [sessions, currentUser]);
+
   const upcomingSessions = useMemo(() => {
     if (!currentUser) return [];
     const now = new Date();
     return sessions
       .filter((session) => {
         if (session.clientId !== currentUser.id) return false;
-        if (!["scheduled", "pending", "pending_cancellation"].includes(session.status)) return false;
+        if (!["scheduled", "pending_cancellation"].includes(session.status)) return false;
         const sessionDate = new Date(`${session.date}T${session.startTime}`);
         return sessionDate >= now;
       })
@@ -399,6 +410,41 @@ export function PortalDashboard() {
           </div>
         )}
 
+        {pendingBookingSessions.length > 0 && (
+          <div className="mb-10 border border-orange-500/40 bg-orange-950/20 p-6 md:p-8">
+            <h2 className="text-2xl text-white mb-2 flex items-center gap-2">
+              <Clock className="w-7 h-7 text-orange-400" />
+              Booking confirmation pending
+            </h2>
+            <p className="text-[#c4b5a0] text-sm mb-6 max-w-3xl">
+              These requests are waiting for the team to confirm. You’ll receive an email when each one is approved or
+              declined.
+            </p>
+            <ul className="space-y-4">
+              {pendingBookingSessions.map((session) => (
+                <li
+                  key={session.id}
+                  className="flex flex-wrap items-center justify-between gap-4 bg-[#1a1a1a]/80 border border-orange-500/25 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-white font-medium">{session.sessionType}</p>
+                    <p className="text-[#a8a8a8] text-sm">
+                      {formatDate(session.date)} · {formatTime(session.startTime)} ·{" "}
+                      {calculateDuration(session.startTime, session.endTime)}
+                    </p>
+                    {session.notes ? (
+                      <p className="text-[#6b6b6b] text-sm mt-1">Note: {session.notes}</p>
+                    ) : null}
+                  </div>
+                  <span className="text-xs uppercase tracking-wider text-orange-300 border border-orange-500/40 px-3 py-1">
+                    Pending
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Sessions Overview - Side by Side */}
         <div className="mb-12 grid lg:grid-cols-2 gap-8">
           {/* All Time Sessions Section */}
@@ -477,12 +523,16 @@ export function PortalDashboard() {
                       <div className="flex items-center gap-3 mb-3">
                         <Clock className="w-5 h-5 text-[#9B7E3A]" />
                         <span className="text-white text-xl">{session.sessionType}</span>
-                        <span className={`px-3 py-1 text-xs border ${
-                          session.status === "pending"
-                            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                            : "bg-[#9B7E3A]/20 text-[#9B7E3A] border-[#9B7E3A]/30"
-                        }`}>
-                          {session.status === "pending" ? "PENDING APPROVAL" : "SCHEDULED"}
+                        <span
+                          className={`px-3 py-1 text-xs border ${
+                            session.status === "pending_cancellation"
+                              ? "bg-amber-500/15 text-amber-300 border-amber-500/35"
+                              : "bg-[#9B7E3A]/20 text-[#9B7E3A] border-[#9B7E3A]/30"
+                          }`}
+                        >
+                          {session.status === "pending_cancellation"
+                            ? "CANCELLATION PENDING"
+                            : "SCHEDULED"}
                         </span>
                       </div>
                       <div className="text-[#6b6b6b] mb-1">

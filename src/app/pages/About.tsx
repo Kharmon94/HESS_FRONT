@@ -218,7 +218,7 @@ export function About() {
           <div className="flex justify-center items-center">
             <img 
               src={certificationsImage} 
-              alt="Professional Certifications - CSCS, RTS, Best Master's in Sports Medicine Programs, MAT" 
+              alt="Professional Certifications - RSCC*E, RTS, Best Master's in Sports Medicine Programs, MAT" 
               className="max-w-full h-auto"
             />
           </div>
@@ -256,13 +256,14 @@ export function About() {
                   ]
                 },
                 {
-                  title: "CERTIFIED STRENGTH & CONDITIONING SPECIALIST (CSCS)",
-                  description: "NSCA-certified with advanced expertise in exercise science, biomechanics, and periodization. This gold-standard certification demonstrates comprehensive knowledge in designing and implementing strength training programs for athletes and high-performers across all levels.",
+                  title: "REGISTERED STRENGTH & CONDITIONING COACH – EMERITUS (RSCC*E)",
+                  description:
+                    "RSCC*E (Registered Strength and Conditioning Coach – Emeritus) is a prestigious designation from the National Strength and Conditioning Association recognizing veteran strength coaches who have demonstrated decades of high-level experience, leadership, and lasting impact in the field of strength and conditioning.",
                   highlights: [
-                    "NSCA certified professional",
-                    "Advanced exercise science expertise",
-                    "Evidence-based program design",
-                    "Periodization and progression mastery"
+                    "NSCA RSCC*E — emeritus recognition for veteran coaches",
+                    "Decades of high-level strength & conditioning leadership",
+                    "Lasting impact across athlete development",
+                    "Gold-standard professional lineage (NSCA)"
                   ]
                 },
                 {
