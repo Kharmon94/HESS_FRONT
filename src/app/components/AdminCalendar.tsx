@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, Edit, Trash2 } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
+import { formatLocalDateKey } from "@/utils/localDate";
 
 type CalendarView = "month" | "week" | "day";
 
@@ -28,6 +29,8 @@ interface NewEventForm {
 
 interface EditEventForm extends NewEventForm {
   sessionId: string;
+  /** Preserved across save so admin edits do not overwrite pending / pending_cancellation / etc. */
+  status: Session["status"];
 }
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 4); // 4 AM to 6 PM
@@ -92,7 +95,8 @@ export function AdminCalendar() {
     endTime: "",
     clientId: "",
     sessionType: "Training",
-    notes: ""
+    notes: "",
+    status: "scheduled",
   });
 
   const handlePrevious = () => {
@@ -120,7 +124,7 @@ export function AdminCalendar() {
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date(2026, 2, 8)); // Today (March 8, 2026)
+    setCurrentDate(new Date());
   };
 
   const getWeekDays = (date: Date) => {
@@ -157,7 +161,7 @@ export function AdminCalendar() {
 
   const getEventsForDate = (date: Date) => {
     const allSessions = sessionList;
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = formatLocalDateKey(date);
     return allSessions.filter(session => 
       session.date === dateString && session.status !== "cancelled"
     );
@@ -165,7 +169,7 @@ export function AdminCalendar() {
 
   const getEventsForTimeSlot = (date: Date, hour: number) => {
     const allSessions = sessionList;
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = formatLocalDateKey(date);
     return allSessions.filter(session => {
       if (session.date !== dateString) return false;
       if (session.status === "cancelled") return false;
@@ -243,7 +247,8 @@ export function AdminCalendar() {
       endTime: session.endTime,
       clientId: session.clientId,
       sessionType: session.sessionType,
-      notes: session.notes
+      notes: session.notes,
+      status: session.status,
     });
     setShowEditEventModal(true);
   };
@@ -268,7 +273,7 @@ export function AdminCalendar() {
 
   const handleTimeSlotClick = (date: Date, hour?: number) => {
     // Pre-fill the form with the selected date and time
-    const formattedDate = date.toISOString().split('T')[0];
+    const formattedDate = formatLocalDateKey(date);
     const formattedTime = hour !== undefined ? `${hour.toString().padStart(2, '0')}:00` : "09:00";
     const endHour = hour !== undefined ? hour + 1 : 10;
     const formattedEndTime = `${endHour.toString().padStart(2, '0')}:00`;
@@ -364,7 +369,7 @@ export function AdminCalendar() {
         end_time: editEventForm.endTime,
         session_type: editEventForm.sessionType,
         notes: editEventForm.notes,
-        status: "scheduled",
+        status: editEventForm.status,
       });
       const ts = res.training_session;
       patchSessionLocal(editEventForm.sessionId, {
@@ -375,7 +380,7 @@ export function AdminCalendar() {
         endTime: ts.end_time || editEventForm.endTime,
         sessionType: ts.session_type === "MATrX" ? "MATrX" : "Training",
         notes: ts.notes || editEventForm.notes,
-        status: (ts.status as Session["status"]) || "scheduled",
+        status: (ts.status as Session["status"]) || editEventForm.status,
       });
       setBanner({
         type: "success",
@@ -398,6 +403,7 @@ export function AdminCalendar() {
       clientId: "",
       sessionType: "Training",
       notes: "",
+      status: "scheduled",
     });
   };
 
@@ -447,6 +453,7 @@ export function AdminCalendar() {
           {/* Navigation */}
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={handleToday}
               className="px-4 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors"
             >
@@ -454,12 +461,14 @@ export function AdminCalendar() {
             </button>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handlePrevious}
                 className="p-2 hover:bg-[#9B7E3A]/10 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-white" />
               </button>
               <button
+                type="button"
                 onClick={handleNext}
                 className="p-2 hover:bg-[#9B7E3A]/10 transition-colors"
               >
@@ -472,6 +481,7 @@ export function AdminCalendar() {
           {/* View Tabs */}
           <div className="flex bg-[#1a1a1a] border border-[#9B7E3A]/20">
             <button
+              type="button"
               onClick={() => setView("month")}
               className={`px-6 py-2 transition-colors ${
                 view === "month"
@@ -482,6 +492,7 @@ export function AdminCalendar() {
               Month
             </button>
             <button
+              type="button"
               onClick={() => setView("week")}
               className={`px-6 py-2 transition-colors border-x border-[#9B7E3A]/20 ${
                 view === "week"
@@ -492,6 +503,7 @@ export function AdminCalendar() {
               Week
             </button>
             <button
+              type="button"
               onClick={() => setView("day")}
               className={`px-6 py-2 transition-colors ${
                 view === "day"
@@ -524,7 +536,7 @@ export function AdminCalendar() {
               {getMonthDays(currentDate).map((date, index) => {
                 const events = getEventsForDate(date);
                 const isCurrentMonth = date.getMonth() === currentDate.getMonth();
-                const isToday = date.toDateString() === new Date(2026, 2, 8).toDateString();
+                const isToday = date.toDateString() === new Date().toDateString();
 
                 return (
                   <div
@@ -573,7 +585,7 @@ export function AdminCalendar() {
               <div className="grid grid-cols-8 gap-0 border-b border-[#9B7E3A]/20">
                 <div className="p-2"></div>
                 {getWeekDays(currentDate).map((date, index) => {
-                  const isToday = date.toDateString() === new Date(2026, 2, 8).toDateString();
+                  const isToday = date.toDateString() === new Date().toDateString();
                   return (
                     <div
                       key={index}
@@ -601,7 +613,7 @@ export function AdminCalendar() {
                     </div>
                     {getWeekDays(currentDate).map((date, dayIndex) => {
                       const events = getEventsForTimeSlot(date, hour);
-                      const isToday = date.toDateString() === new Date(2026, 2, 8).toDateString();
+                      const isToday = date.toDateString() === new Date().toDateString();
                       
                       return (
                         <div
@@ -645,6 +657,7 @@ export function AdminCalendar() {
                                 {session.status === "pending" && (
                                   <div className="flex gap-1 mt-2">
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleApproveSession(session.id);
@@ -655,6 +668,7 @@ export function AdminCalendar() {
                                       Approve
                                     </button>
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleRejectSession(session.id);
@@ -669,6 +683,7 @@ export function AdminCalendar() {
                                 {session.status === "pending_cancellation" && (
                                   <div className="mt-2">
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleAcceptCancellation(session.id);
@@ -717,15 +732,20 @@ export function AdminCalendar() {
                       onClick={() => handleTimeSlotClick(currentDate, hour)}
                       className="min-h-[80px] p-4 border-l border-[#9B7E3A]/20 cursor-pointer hover:bg-[#9B7E3A]/5 transition-colors relative"
                     >
-                      {events.map(session => {
-                        const bgColor = session.status === "pending" ? "#DC2626" : "#9B7E3A";
+                      {events.map((session) => {
+                        const isPending = session.status === "pending";
+                        const isPendingCancel = session.status === "pending_cancellation";
+                        const bgColor = isPending ? "#DC2626" : isPendingCancel ? "transparent" : "#9B7E3A";
+                        const borderStyle = isPendingCancel ? "2px solid #DC2626" : "none";
+                        const textColor = isPendingCancel ? "#DC2626" : "#ffffff";
                         return (
                           <div
                             key={session.id}
                             className="p-4 rounded mb-2 cursor-pointer hover:brightness-110 transition-all"
-                            style={{ 
+                            style={{
                               backgroundColor: bgColor,
-                              color: "#ffffff"
+                              border: borderStyle,
+                              color: textColor,
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -744,13 +764,14 @@ export function AdminCalendar() {
                               </div>
                             </div>
                             {session.notes && (
-                              <div className="text-xs opacity-75 mt-2">
+                              <div className={`text-xs mt-2 ${isPendingCancel ? "opacity-90" : "opacity-75"}`}>
                                 {session.notes}
                               </div>
                             )}
-                            {session.status === "pending" && (
+                            {isPending && (
                               <div className="flex gap-2 mt-3">
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleApproveSession(session.id);
@@ -761,6 +782,7 @@ export function AdminCalendar() {
                                   Approve Session
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleRejectSession(session.id);
@@ -769,6 +791,21 @@ export function AdminCalendar() {
                                 >
                                   <X className="w-4 h-4" />
                                   Reject
+                                </button>
+                              </div>
+                            )}
+                            {isPendingCancel && (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAcceptCancellation(session.id);
+                                  }}
+                                  className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center justify-center gap-2"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  Accept Cancellation
                                 </button>
                               </div>
                             )}
@@ -787,6 +824,7 @@ export function AdminCalendar() {
       {/* Quick Add Button */}
       <div className="fixed bottom-8 right-8">
         <button
+          type="button"
           onClick={() => handleTimeSlotClick(currentDate)}
           className="w-14 h-14 bg-[#9B7E3A] hover:bg-[#B8963E] text-[#1a1a1a] rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110"
         >
@@ -801,6 +839,7 @@ export function AdminCalendar() {
             <div className="p-6 border-b border-[#9B7E3A]/20 flex items-center justify-between">
               <h3 className="text-xl text-white">Schedule New Session</h3>
               <button
+                type="button"
                 onClick={() => setShowNewEventModal(false)}
                 className="text-[#9B9B9B] hover:text-white transition-colors"
               >
@@ -905,6 +944,7 @@ export function AdminCalendar() {
             <div className="p-6 border-b border-[#9B7E3A]/20 flex items-center justify-between">
               <h3 className="text-xl text-white">Edit Session</h3>
               <button
+                type="button"
                 onClick={() => setShowEditEventModal(false)}
                 className="text-[#9B9B9B] hover:text-white transition-colors"
               >
@@ -986,10 +1026,14 @@ export function AdminCalendar() {
                 <button
                   type="button"
                   onClick={() => {
-                    const session = sessionList.find(s => s.id === editEventForm.sessionId);
+                    const session = sessionList.find((s) => s.id === editEventForm.sessionId);
                     if (session && session.status === "cancelled") {
-                      if (confirm(`Are you sure you want to permanently delete this cancelled session with ${session.clientName}?`)) {
-                        handleDeleteSession(editEventForm.sessionId);
+                      if (
+                        confirm(
+                          `Are you sure you want to permanently delete this cancelled session with ${session.clientName}?`
+                        )
+                      ) {
+                        void handleDeleteSession(editEventForm.sessionId);
                         setShowEditEventModal(false);
                         setEditEventForm({
                           sessionId: "",
@@ -998,7 +1042,8 @@ export function AdminCalendar() {
                           endTime: "",
                           clientId: "",
                           sessionType: "Training",
-                          notes: ""
+                          notes: "",
+                          status: "scheduled",
                         });
                       }
                     } else {

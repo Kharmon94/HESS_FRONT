@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { api, type ApiUser } from "@/services/api";
+import { formatDisplayDate } from "@/utils/localDate";
 import { ArrowLeft, Phone, Mail, Calendar, TrendingUp, Dumbbell, Target, FileText, Plus, CreditCard, MapPin } from "lucide-react";
 
 interface WorkoutSession {
@@ -107,6 +108,12 @@ export function ClientProfile() {
     );
   }
 
+  const packageSessionTotal = client.sessionsCompleted + client.sessionsRemaining;
+  const packageProgressPercent =
+    packageSessionTotal > 0 ? Math.round((client.sessionsCompleted / packageSessionTotal) * 100) : 0;
+  const packageProgressWidth =
+    packageSessionTotal > 0 ? (client.sessionsCompleted / packageSessionTotal) * 100 : 0;
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -139,7 +146,7 @@ export function ClientProfile() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>Joined {new Date(client.joinDate).toLocaleDateString()}</span>
+                  <span>Joined {formatDisplayDate(client.joinDate)}</span>
                 </div>
               </div>
             </div>
@@ -205,13 +212,11 @@ export function ClientProfile() {
             <div className="w-full bg-[#1a1a1a] h-4 rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#9B7E3A] transition-all duration-500"
-                style={{ 
-                  width: `${((client.sessionsCompleted / (client.sessionsCompleted + client.sessionsRemaining)) * 100)}%` 
-                }}
+                style={{ width: `${packageProgressWidth}%` }}
               />
             </div>
             <p className="text-[#9B9B9B] text-sm mt-2">
-              {Math.round((client.sessionsCompleted / (client.sessionsCompleted + client.sessionsRemaining)) * 100)}% of package completed
+              {packageProgressPercent}% of package completed
             </p>
           </div>
         </div>
@@ -220,6 +225,7 @@ export function ClientProfile() {
         <div className="bg-[#2a2a2a] border border-[#3a3a3a] mb-8">
           <div className="flex border-b border-[#3a3a3a]">
             <button
+              type="button"
               onClick={() => setActiveTab("overview")}
               className={`px-6 py-4 text-sm uppercase tracking-wider transition-colors ${
                 activeTab === "overview"
@@ -230,6 +236,7 @@ export function ClientProfile() {
               Overview
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("workouts")}
               className={`px-6 py-4 text-sm uppercase tracking-wider transition-colors ${
                 activeTab === "workouts"
@@ -240,6 +247,7 @@ export function ClientProfile() {
               Workout History
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("assessments")}
               className={`px-6 py-4 text-sm uppercase tracking-wider transition-colors ${
                 activeTab === "assessments"
@@ -294,9 +302,18 @@ export function ClientProfile() {
                 </div>
                 <div>
                   <span className="text-[#9B9B9B] text-sm">Last Activity</span>
-                  <p className="text-white">{new Date(client.lastActivity).toLocaleDateString()}</p>
+                  <p className="text-white">
+                    {client.lastActivity && client.lastActivity !== "—" && !Number.isNaN(Date.parse(client.lastActivity))
+                      ? new Date(client.lastActivity).toLocaleDateString()
+                      : "—"}
+                  </p>
                 </div>
-                <button className="w-full mt-4 px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors">
+                <button
+                  type="button"
+                  disabled
+                  title="Not available yet"
+                  className="w-full mt-4 px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider opacity-50 cursor-not-allowed"
+                >
                   Upgrade Package
                 </button>
               </div>
@@ -306,7 +323,12 @@ export function ClientProfile() {
             <div className="bg-[#2a2a2a] border border-[#3a3a3a] p-6 lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[#9B7E3A] uppercase tracking-wider text-sm">Medical Notes</h3>
-                <button className="text-[#9B7E3A] hover:text-white">
+                <button
+                  type="button"
+                  disabled
+                  title="Not available yet"
+                  className="text-[#9B7E3A] opacity-40 cursor-not-allowed"
+                >
                   <FileText className="w-5 h-5" />
                 </button>
               </div>
@@ -324,7 +346,12 @@ export function ClientProfile() {
                   {client.sessionsCompleted} total sessions on record
                 </p>
               </div>
-              <button className="px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#9B7E3A]/80 transition-colors">
+              <button
+                type="button"
+                disabled
+                title="Not available yet — log sessions from the schedule calendar"
+                className="px-4 py-2 bg-[#9B7E3A]/50 text-white text-sm uppercase tracking-wider cursor-not-allowed opacity-70"
+              >
                 Log Session
               </button>
             </div>
@@ -362,7 +389,12 @@ export function ClientProfile() {
                     </div>
 
                     {/* Edit Button */}
-                    <button className="text-[#9B9B9B] hover:text-[#9B7E3A] text-sm uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      disabled
+                      title="Not available yet"
+                      className="text-[#9B9B9B] text-sm uppercase tracking-wider opacity-0 group-hover:opacity-40 cursor-not-allowed transition-opacity"
+                    >
                       Edit
                     </button>
                   </div>
@@ -383,7 +415,12 @@ export function ClientProfile() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-white text-xl">Performance Assessments</h3>
-              <button className="px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#9B7E3A]/80 transition-colors">
+              <button
+                type="button"
+                disabled
+                title="Not available yet"
+                className="px-4 py-2 bg-[#9B7E3A]/50 text-white text-sm uppercase tracking-wider cursor-not-allowed opacity-70"
+              >
                 New Assessment
               </button>
             </div>
@@ -391,7 +428,12 @@ export function ClientProfile() {
               <div key={index} className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h4 className="text-white text-lg">{new Date(assessment.date).toLocaleDateString()}</h4>
-                  <button className="text-[#9B7E3A] hover:text-white text-sm uppercase tracking-wider">
+                  <button
+                    type="button"
+                    disabled
+                    title="Not available yet"
+                    className="text-[#9B7E3A] text-sm uppercase tracking-wider opacity-40 cursor-not-allowed"
+                  >
                     View Details
                   </button>
                 </div>

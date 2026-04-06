@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
+import { formatLocalDateKey } from "@/utils/localDate";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export function BookingModal({
 
   // Check if a time slot is available for a specific date
   const isSlotAvailable = (date: Date, startTime: string): boolean => {
-    const dateString = date.toISOString().split("T")[0];
+    const dateString = formatLocalDateKey(date);
     const allSessions = sessions;
     
     // Get all sessions for this date
@@ -149,7 +150,7 @@ export function BookingModal({
     if (!selectedDate || !selectedTime) return;
     setBookingError(null);
 
-    const dateString = selectedDate.toISOString().split("T")[0];
+    const dateString = formatLocalDateKey(selectedDate);
     const startHour = parseInt(selectedTime.split(":")[0], 10);
     const endTime = `${(startHour + 1).toString().padStart(2, "0")}:00`;
 
@@ -255,7 +256,7 @@ export function BookingModal({
 
                       return (
                         <button
-                          key={date.toISOString()}
+                          key={formatLocalDateKey(date)}
                           onClick={() => {
                             if (!isDisabled) {
                               setSelectedDate(date);

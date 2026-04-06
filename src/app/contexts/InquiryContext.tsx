@@ -17,6 +17,8 @@ interface InquiryContextType {
   inquiries: Inquiry[];
   addInquiry: (inquiry: Omit<Inquiry, "id" | "submittedDate" | "status">) => Promise<void>;
   updateInquiryStatus: (inquiryId: string, status: "new" | "contacted" | "closed") => void;
+  inquiryUpdateError: string | null;
+  clearInquiryUpdateError: () => void;
 }
 
 const InquiryContext = createContext<InquiryContextType | undefined>(undefined);
@@ -41,6 +43,7 @@ function inquiryFromApi(i: ApiInquiry): Inquiry {
 export function InquiryProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiryUpdateError, setInquiryUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser?.role !== "admin") {
@@ -78,6 +81,7 @@ export function InquiryProvider({ children }: { children: ReactNode }) {
   };
 
   const updateInquiryStatus = (inquiryId: string, status: "new" | "contacted" | "closed") => {
+    setInquiryUpdateError(null);
     void api
       .updateAdminInquiry(inquiryId, { status })
       .then(({ inquiry }) => {
@@ -85,11 +89,23 @@ export function InquiryProvider({ children }: { children: ReactNode }) {
           prev.map((x) => (x.id === inquiryId ? inquiryFromApi(inquiry) : x))
         );
       })
-      .catch(() => {});
+      .catch((err) => {
+        setInquiryUpdateError(err instanceof Error ? err.message : "Could not update inquiry.");
+      });
   };
 
+  const clearInquiryUpdateError = () => setInquiryUpdateError(null);
+
   return (
-    <InquiryContext.Provider value={{ inquiries, addInquiry, updateInquiryStatus }}>
+    <InquiryContext.Provider
+      value={{
+        inquiries,
+        addInquiry,
+        updateInquiryStatus,
+        inquiryUpdateError,
+        clearInquiryUpdateError,
+      }}
+    >
       {children}
     </InquiryContext.Provider>
   );

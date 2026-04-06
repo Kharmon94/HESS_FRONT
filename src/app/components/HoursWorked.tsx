@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Clock, Calendar, TrendingUp, BarChart3 } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
+import { formatLocalDateKey } from "@/utils/localDate";
 
 interface WeekData {
   weekStart: string;
@@ -36,39 +37,49 @@ export function HoursWorked() {
       .catch(() => setAllSessions([]));
   }, []);
   
-  // Calculate duration in hours for a session
+  // Calculate duration in hours for a session (same calendar day; if end < start, treat as next day)
   const calculateSessionHours = (startTime: string, endTime: string): number => {
-    const start = new Date(`2026-01-01T${startTime}`);
-    const end = new Date(`2026-01-01T${endTime}`);
-    const diff = (end.getTime() - start.getTime()) / 1000 / 60 / 60; // Convert to hours
-    return diff;
+    const base = "2000-01-01";
+    const start = new Date(`${base}T${startTime}`);
+    let end = new Date(`${base}T${endTime}`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+    if (end.getTime() < start.getTime()) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+    return Math.max(0, (end.getTime() - start.getTime()) / 1000 / 60 / 60);
   };
 
-  // Get week start date (Monday) for any date
+  /** Monday start of week; does not mutate the argument. */
   const getWeekStart = (date: Date): Date => {
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-    return new Date(date.setDate(diff));
+    const d = new Date(date.getTime());
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
   };
 
   // Group sessions by week
   const sessionsByWeek = new Map<string, WeekData>();
   
-  allSessions.forEach(session => {
+  allSessions.forEach((session) => {
     if (session.status !== "completed") return; // Only count completed sessions
-    
-    const sessionDate = new Date(session.date);
-    const weekStart = getWeekStart(new Date(sessionDate));
+    if (!session.date?.trim()) return;
+
+    const sessionDate = new Date(`${session.date}T12:00:00`);
+    if (Number.isNaN(sessionDate.getTime())) return;
+
+    const weekStart = getWeekStart(sessionDate);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
     
-    const weekKey = weekStart.toISOString().split('T')[0];
+    const weekKey = formatLocalDateKey(weekStart);
     const hours = calculateSessionHours(session.startTime, session.endTime);
     
     if (!sessionsByWeek.has(weekKey)) {
       sessionsByWeek.set(weekKey, {
         weekStart: weekKey,
-        weekEnd: weekEnd.toISOString().split('T')[0],
+        weekEnd: formatLocalDateKey(weekEnd),
         totalHours: 0,
         sessionCount: 0,
         trainingHours: 0,
@@ -97,8 +108,22 @@ export function HoursWorked() {
   const totalSessionsAllTime = weekDataArray.reduce((sum, week) => sum + week.sessionCount, 0);
   const avgHoursPerWeek = weekDataArray.length > 0 ? totalHoursAllTime / weekDataArray.length : 0;
 
-  // Get current week data
-  const currentWeekData = weekDataArray.length > 0 ? weekDataArray[0] : null;
+  /** Monday-based key for the user's current calendar week (matches session grouping). */
+  const calendarWeekStart = getWeekStart(new Date());
+  const calendarWeekKey = formatLocalDateKey(calendarWeekStart);
+  const calendarWeekEndDate = new Date(calendarWeekStart);
+  calendarWeekEndDate.setDate(calendarWeekEndDate.getDate() + 6);
+  const calendarWeekEndKey = formatLocalDateKey(calendarWeekEndDate);
+
+  const thisCalendarWeekData: WeekData =
+    sessionsByWeek.get(calendarWeekKey) ?? {
+      weekStart: calendarWeekKey,
+      weekEnd: calendarWeekEndKey,
+      totalHours: 0,
+      sessionCount: 0,
+      trainingHours: 0,
+      matrxHours: 0,
+    };
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -113,7 +138,7 @@ export function HoursWorked() {
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <Clock className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{currentWeekData?.totalHours.toFixed(1) || '0.0'}</span>
+            <span className="text-2xl text-white font-light">{thisCalendarWeekData.totalHours.toFixed(1)}</span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Hours This Week</p>
         </div>
@@ -137,7 +162,7 @@ export function HoursWorked() {
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <Calendar className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{currentWeekData?.sessionCount || 0}</span>
+            <span className="text-2xl text-white font-light">{thisCalendarWeekData.sessionCount}</span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Sessions This Week</p>
         </div>
@@ -174,20 +199,20 @@ export function HoursWorked() {
                   </td>
                 </tr>
               ) : (
-                weekDataArray.map((week, index) => {
+                weekDataArray.map((week) => {
                   const avgPerSession = week.sessionCount > 0 ? week.totalHours / week.sessionCount : 0;
-                  const isCurrentWeek = index === 0;
+                  const isThisCalendarWeek = week.weekStart === calendarWeekKey;
                   
                   return (
                     <tr 
                       key={week.weekStart}
-                      className={`hover:bg-[#1a1a1a] transition-colors ${isCurrentWeek ? 'bg-[#9B7E3A]/5' : ''}`}
+                      className={`hover:bg-[#1a1a1a] transition-colors ${isThisCalendarWeek ? "bg-[#9B7E3A]/5" : ""}`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          {isCurrentWeek && (
+                          {isThisCalendarWeek && (
                             <span className="px-2 py-1 text-xs bg-[#9B7E3A] text-white">
-                              CURRENT
+                              THIS WEEK
                             </span>
                           )}
                           <div>

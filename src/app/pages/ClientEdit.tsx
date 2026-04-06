@@ -150,6 +150,7 @@ export function ClientEdit() {
         {/* Back Button - More Prominent */}
         <div className="mb-6">
           <button
+            type="button"
             onClick={handleCancel}
             className="inline-flex items-center gap-3 text-[#9B7E3A] hover:text-white transition-colors group"
           >
@@ -167,6 +168,7 @@ export function ClientEdit() {
             <p className="text-[#9B9B9B]">{client.name}</p>
           </div>
           <button
+            type="button"
             onClick={handleSave}
             className="px-6 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors flex items-center gap-2"
           >
@@ -388,12 +390,14 @@ export function ClientEdit() {
         {/* Action Buttons */}
         <div className="flex justify-end gap-4">
           <button
+            type="button"
             onClick={handleCancel}
             className="px-6 py-3 border border-[#9B7E3A]/20 text-[#9B9B9B] hover:text-white hover:border-[#9B7E3A]/40 transition-colors"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
             className="px-6 py-3 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors flex items-center gap-2"
           >

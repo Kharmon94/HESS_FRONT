@@ -77,6 +77,12 @@ export function PortalDashboard() {
     return null;
   }
 
+  const portalPackageTotal = currentUser.totalSessionsInPackage;
+  const portalPackageProgressWidth =
+    portalPackageTotal > 0
+      ? Math.min(100, (currentUser.sessionsCompleted / portalPackageTotal) * 100)
+      : 0;
+
   const handleLogout = () => {
     logout();
     navigate("/portal");
@@ -489,15 +495,22 @@ export function PortalDashboard() {
 
               {/* Progress Bar */}
               <div className="w-full bg-[#1a1a1a] h-4 border border-[#9B7E3A]/20 overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-[#9B7E3A] transition-all duration-500"
-                  style={{ width: `${(currentUser.sessionsCompleted / currentUser.totalSessionsInPackage) * 100}%` }}
+                  style={{ width: `${portalPackageProgressWidth}%` }}
                 />
               </div>
 
               <div className="mt-6 pt-6 border-t border-[#9B7E3A]/20">
                 <p className="text-[#6b6b6b] text-center">
-                  You're making great progress! {currentUser.sessionsRemaining} more sessions to complete your package.
+                  {portalPackageTotal > 0 ? (
+                    <>
+                      You&apos;re making great progress! {currentUser.sessionsRemaining} more sessions to complete your
+                      package.
+                    </>
+                  ) : (
+                    <>Package size isn&apos;t set yet. Contact your coach if this looks wrong.</>
+                  )}
                 </p>
               </div>
             </div>
@@ -548,7 +561,12 @@ export function PortalDashboard() {
                       )}
                     </div>
                     <div className="flex gap-3">
-                      <button className="px-5 py-2 border border-[#9B7E3A] text-[#9B7E3A] hover:bg-[#9B7E3A]/10 transition-colors">
+                      <button
+                        type="button"
+                        disabled
+                        title="Rescheduling from the portal is not available yet. Use Book New Session or contact your coach."
+                        className="px-5 py-2 border border-[#9B7E3A]/40 text-[#9B7E3A]/50 cursor-not-allowed transition-colors"
+                      >
                         Reschedule
                       </button>
                       <button

@@ -5,6 +5,7 @@ import { AdminCalendar } from "../components/AdminCalendar";
 import { HoursWorked } from "../components/HoursWorked";
 import { useInquiries } from "../contexts/InquiryContext";
 import { api } from "@/services/api";
+import { formatDisplayDate } from "@/utils/localDate";
 
 interface Client {
   id: string;
@@ -32,10 +33,11 @@ interface Inquiry {
 
 
 export function AdminDashboard() {
-  const { inquiries, updateInquiryStatus } = useInquiries();
+  const { inquiries, updateInquiryStatus, inquiryUpdateError, clearInquiryUpdateError } = useInquiries();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
+  /** API has no inactive flag yet; only "all" vs "active" (same data today) is meaningful. */
+  const [filterStatus, setFilterStatus] = useState<"all" | "active">("all");
   const [activeTab, setActiveTab] = useState<"calendar" | "clients" | "inquiries" | "hours">("calendar");
   const [clients, setClients] = useState<Client[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -75,7 +77,7 @@ export function AdminDashboard() {
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === "all" || client.status === filterStatus;
+    const matchesStatus = filterStatus === "all" || client.status === "active";
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
     // Sort by sessions remaining: 0 first, then 1, then others
@@ -216,6 +218,7 @@ export function AdminDashboard() {
         <div className="mb-8">
           <div className="grid grid-cols-2 lg:flex bg-[#2a2a2a] border border-[#9B7E3A]/20">
             <button
+              type="button"
               onClick={() => setActiveTab("calendar")}
               className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors flex-1 ${
                 activeTab === "calendar"
@@ -228,6 +231,7 @@ export function AdminDashboard() {
               <span className="lg:hidden">Calendar</span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("clients")}
               className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-l lg:border-x border-[#9B7E3A]/20 flex-1 relative ${
                 activeTab === "clients"
@@ -245,6 +249,7 @@ export function AdminDashboard() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("inquiries")}
               className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-t lg:border-t-0 flex-1 ${
                 activeTab === "inquiries"
@@ -262,6 +267,7 @@ export function AdminDashboard() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("hours")}
               className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-t border-l lg:border-t-0 border-[#9B7E3A]/20 flex-1 ${
                 activeTab === "hours"
@@ -301,6 +307,7 @@ export function AdminDashboard() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setFilterStatus("all")}
                     className={`px-4 py-2 text-sm ${
                       filterStatus === "all"
@@ -311,6 +318,7 @@ export function AdminDashboard() {
                     All
                   </button>
                   <button
+                    type="button"
                     onClick={() => setFilterStatus("active")}
                     className={`px-4 py-2 text-sm ${
                       filterStatus === "active"
@@ -319,16 +327,6 @@ export function AdminDashboard() {
                     }`}
                   >
                     Active
-                  </button>
-                  <button
-                    onClick={() => setFilterStatus("inactive")}
-                    className={`px-4 py-2 text-sm ${
-                      filterStatus === "inactive"
-                        ? "bg-[#9B7E3A] text-white"
-                        : "bg-[#1a1a1a] text-[#9B9B9B] border border-[#3a3a3a]"
-                    }`}
-                  >
-                    Inactive
                   </button>
                 </div>
               </div>
@@ -364,7 +362,7 @@ export function AdminDashboard() {
                           <td className="px-6 py-4">
                             <div>
                               <div className="text-white">{client.name}</div>
-                              <div className="text-sm text-[#9B9B9B]">Joined {new Date(client.joinDate).toLocaleDateString()}</div>
+                              <div className="text-sm text-[#9B9B9B]">Joined {formatDisplayDate(client.joinDate)}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -442,7 +440,7 @@ export function AdminDashboard() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-white text-lg mb-1">{client.name}</h3>
-                        <p className="text-[#9B9B9B] text-xs">Joined {new Date(client.joinDate).toLocaleDateString()}</p>
+                        <p className="text-[#9B9B9B] text-xs">Joined {formatDisplayDate(client.joinDate)}</p>
                       </div>
                       <span
                         className={`px-2 py-1 text-xs uppercase tracking-wider ${
@@ -504,6 +502,21 @@ export function AdminDashboard() {
         {/* Inquiries Tab */}
         {activeTab === "inquiries" && (
           <div>
+            {inquiryUpdateError && (
+              <div
+                className="mb-4 flex items-start justify-between gap-4 border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
+                role="alert"
+              >
+                <p>{inquiryUpdateError}</p>
+                <button
+                  type="button"
+                  onClick={clearInquiryUpdateError}
+                  className="shrink-0 uppercase tracking-wider text-xs opacity-80 hover:opacity-100"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
             <div className="space-y-4">
               {inquiries.map((inquiry) => (
                 <div key={inquiry.id} className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
@@ -556,6 +569,7 @@ export function AdminDashboard() {
                     {/* Actions */}
                     <div className="flex lg:flex-col gap-2 lg:w-40">
                       <button
+                        type="button"
                         onClick={() => handleInquiryStatusChange(inquiry.id, "contacted")}
                         className="flex-1 lg:flex-none px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#9B7E3A]/80 transition-colors whitespace-nowrap"
                         disabled={inquiry.status === "contacted" || inquiry.status === "closed"}
@@ -563,6 +577,7 @@ export function AdminDashboard() {
                         Mark Contacted
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleInquiryStatusChange(inquiry.id, "closed")}
                         className="flex-1 lg:flex-none px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors whitespace-nowrap"
                         disabled={inquiry.status === "closed"}
