@@ -34,8 +34,13 @@ interface EditEventForm extends NewEventForm {
   status: Session["status"];
 }
 
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 4); // 4 AM to 6 PM
+/** Hour rows (local time); includes early morning and late evening. */
+const HOURS = Array.from({ length: 18 }, (_, i) => i + 5); // 5 AM – 10 PM
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function canOpenSessionEditor(status: Session["status"]): boolean {
+  return status === "scheduled" || status === "completed" || status === "pending_cancellation";
+}
 
 export function AdminCalendar() {
   const [sessionList, setSessionList] = useState<Session[]>([]);
@@ -81,6 +86,8 @@ export function AdminCalendar() {
   const [view, setView] = useState<CalendarView>("week");
   const [showNewEventModal, setShowNewEventModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [savingNewSession, setSavingNewSession] = useState(false);
+  const [savingEditSession, setSavingEditSession] = useState(false);
   const [newEventForm, setNewEventForm] = useState<NewEventForm>({
     date: "",
     startTime: "",
@@ -128,15 +135,19 @@ export function AdminCalendar() {
     setCurrentDate(new Date());
   };
 
+  /** Monday-first week (aligned with Hours Worked / payroll-style weeks). */
   const getWeekDays = (date: Date) => {
-    const days = [];
-    const startOfWeek = new Date(date);
-    startOfWeek.setDate(date.getDate() - date.getDay());
-    
+    const days: Date[] = [];
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
     for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-      days.push(day);
+      const x = new Date(monday);
+      x.setDate(monday.getDate() + i);
+      days.push(x);
     }
     return days;
   };
@@ -171,11 +182,12 @@ export function AdminCalendar() {
   const getEventsForTimeSlot = (date: Date, hour: number) => {
     const allSessions = sessionList;
     const dateString = formatLocalDateKey(date);
-    return allSessions.filter(session => {
+    return allSessions.filter((session) => {
       if (session.date !== dateString) return false;
       if (session.status === "cancelled") return false;
-      const eventHour = parseInt(session.startTime.split(":")[0]);
-      return eventHour === hour;
+      const h = parseInt(session.startTime.split(":")[0], 10);
+      if (Number.isNaN(h)) return false;
+      return h === hour;
     });
   };
 
@@ -301,6 +313,7 @@ export function AdminCalendar() {
 
     const clientDisplayName = `${selectedClient.firstName.charAt(0)}. ${selectedClient.lastName}`;
 
+    setSavingNewSession(true);
     try {
       const res = await api.createTrainingSession({
         user_id: newEventForm.clientId,
@@ -336,6 +349,8 @@ export function AdminCalendar() {
         message: err instanceof Error ? err.message : "Could not create session",
       });
       return;
+    } finally {
+      setSavingNewSession(false);
     }
 
     setShowNewEventModal(false);
@@ -360,6 +375,7 @@ export function AdminCalendar() {
 
     const clientDisplayName = `${selectedClient.firstName.charAt(0)}. ${selectedClient.lastName}`;
 
+    setSavingEditSession(true);
     try {
       const res = await api.updateTrainingSession(editEventForm.sessionId, {
         user_id: editEventForm.clientId,
@@ -393,6 +409,8 @@ export function AdminCalendar() {
         message: err instanceof Error ? err.message : "Could not update session",
       });
       return;
+    } finally {
+      setSavingEditSession(false);
     }
 
     setShowEditEventModal(false);
@@ -553,13 +571,36 @@ export function AdminCalendar() {
                       {date.getDate()}
                     </div>
                     <div className="space-y-1">
-                      {events.slice(0, 3).map(event => {
-                        const bgColor = event.status === "pending" ? "#DC2626" : "#9B7E3A";
+                      {events.slice(0, 3).map((event) => {
+                        const isPending = event.status === "pending";
+                        const isPendingCancel = event.status === "pending_cancellation";
+                        const bgColor = isPending ? "#DC2626" : isPendingCancel ? "transparent" : "#9B7E3A";
+                        const border = isPendingCancel ? "1px solid #DC2626" : "none";
+                        const color = isPendingCancel ? "#DC2626" : isPending ? "#DC2626" : "#9B7E3A";
                         return (
                           <div
                             key={event.id}
-                            className="text-xs p-1 rounded truncate"
-                            style={{ backgroundColor: `${bgColor}30`, color: bgColor }}
+                            role="button"
+                            tabIndex={0}
+                            className={`text-xs p-1 rounded truncate ${
+                              canOpenSessionEditor(event.status) ? "cursor-pointer hover:opacity-90" : ""
+                            }`}
+                            style={{
+                              backgroundColor: isPendingCancel ? "transparent" : `${bgColor}30`,
+                              color,
+                              border,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canOpenSessionEditor(event.status)) handleEditSession(event.id);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (canOpenSessionEditor(event.status)) handleEditSession(event.id);
+                              }
+                            }}
                           >
                             {event.startTime} {event.clientName}
                           </div>
@@ -639,7 +680,9 @@ export function AdminCalendar() {
                             return (
                               <div
                                 key={session.id}
-                                className="absolute inset-x-1 top-1 p-2 rounded text-xs overflow-hidden z-10 cursor-pointer"
+                                className={`absolute inset-x-1 top-1 p-2 rounded text-xs overflow-hidden z-10 ${
+                                  canOpenSessionEditor(session.status) ? "cursor-pointer" : ""
+                                } ${session.status === "scheduled" ? "group" : ""}`}
                                 style={{ 
                                   backgroundColor: bgColor,
                                   border: borderStyle || "none",
@@ -647,7 +690,7 @@ export function AdminCalendar() {
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (session.status === "scheduled") {
+                                  if (canOpenSessionEditor(session.status)) {
                                     handleEditSession(session.id);
                                   }
                                 }}
@@ -697,7 +740,7 @@ export function AdminCalendar() {
                                   </div>
                                 )}
                                 {session.status === "scheduled" && (
-                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                     <Edit className="w-3 h-3" />
                                   </div>
                                 )}
@@ -750,7 +793,7 @@ export function AdminCalendar() {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (session.status === "scheduled") {
+                              if (canOpenSessionEditor(session.status)) {
                                 handleEditSession(session.id);
                               }
                             }}
@@ -764,6 +807,9 @@ export function AdminCalendar() {
                                 {session.startTime} - {session.endTime}
                               </div>
                             </div>
+                            {session.status === "completed" && (
+                              <div className="text-xs mt-1 uppercase tracking-wider text-white/70">Completed</div>
+                            )}
                             {session.notes && (
                               <div className={`text-xs mt-2 ${isPendingCancel ? "opacity-90" : "opacity-75"}`}>
                                 {session.notes}
@@ -841,8 +887,10 @@ export function AdminCalendar() {
               <h3 className="text-xl text-white">Schedule New Session</h3>
               <button
                 type="button"
-                onClick={() => setShowNewEventModal(false)}
-                className="text-[#9B9B9B] hover:text-white transition-colors"
+                onClick={() => !savingNewSession && setShowNewEventModal(false)}
+                disabled={savingNewSession}
+                className="text-[#9B9B9B] hover:text-white transition-colors disabled:opacity-40"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -921,16 +969,18 @@ export function AdminCalendar() {
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowNewEventModal(false)}
-                  className="px-6 py-2 border border-[#9B7E3A]/20 text-[#9B9B9B] hover:text-white hover:border-[#9B7E3A]/40 transition-colors"
+                  onClick={() => !savingNewSession && setShowNewEventModal(false)}
+                  disabled={savingNewSession}
+                  className="px-6 py-2 border border-[#9B7E3A]/20 text-[#9B9B9B] hover:text-white hover:border-[#9B7E3A]/40 transition-colors disabled:opacity-40"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors"
+                  disabled={savingNewSession}
+                  className="px-6 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors disabled:opacity-50"
                 >
-                  Create Session
+                  {savingNewSession ? "Creating…" : "Create Session"}
                 </button>
               </div>
             </form>
@@ -943,11 +993,18 @@ export function AdminCalendar() {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#2a2a2a] border border-[#9B7E3A]/20 w-full max-w-md">
             <div className="p-6 border-b border-[#9B7E3A]/20 flex items-center justify-between">
-              <h3 className="text-xl text-white">Edit Session</h3>
+              <div>
+                <h3 className="text-xl text-white">Edit Session</h3>
+                <p className="text-[#9B9B9B] text-xs mt-1 capitalize">
+                  Status: {editEventForm.status.replace(/_/g, " ")}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowEditEventModal(false)}
-                className="text-[#9B9B9B] hover:text-white transition-colors"
+                onClick={() => !savingEditSession && setShowEditEventModal(false)}
+                disabled={savingEditSession}
+                className="text-[#9B9B9B] hover:text-white transition-colors disabled:opacity-40"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1027,6 +1084,7 @@ export function AdminCalendar() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (savingEditSession) return;
                     const session = sessionList.find((s) => s.id === editEventForm.sessionId);
                     if (session && session.status === "cancelled") {
                       if (
@@ -1055,7 +1113,8 @@ export function AdminCalendar() {
                       });
                     }
                   }}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2"
+                  disabled={savingEditSession}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2 disabled:opacity-40"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
@@ -1063,16 +1122,18 @@ export function AdminCalendar() {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowEditEventModal(false)}
-                    className="px-6 py-2 border border-[#9B7E3A]/20 text-[#9B9B9B] hover:text-white hover:border-[#9B7E3A]/40 transition-colors"
+                    onClick={() => !savingEditSession && setShowEditEventModal(false)}
+                    disabled={savingEditSession}
+                    className="px-6 py-2 border border-[#9B7E3A]/20 text-[#9B9B9B] hover:text-white hover:border-[#9B7E3A]/40 transition-colors disabled:opacity-40"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors"
+                    disabled={savingEditSession}
+                    className="px-6 py-2 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors disabled:opacity-50"
                   >
-                    Update Session
+                    {savingEditSession ? "Saving…" : "Update Session"}
                   </button>
                 </div>
               </div>
