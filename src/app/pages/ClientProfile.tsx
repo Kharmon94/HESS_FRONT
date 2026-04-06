@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { api, type ApiAssessment, type ApiUser } from "@/services/api";
+import { api, type ApiAssessment, type ApiUser, type TrainingSessionApi } from "@/services/api";
 import { formatDisplayDate } from "@/utils/localDate";
 import { ArrowLeft, Phone, Mail, Calendar, TrendingUp, Dumbbell, Target, FileText, Plus, CreditCard, MapPin } from "lucide-react";
 
@@ -9,6 +9,43 @@ interface WorkoutSession {
   date: string;
   type: string;
   duration: number;
+  status: string;
+  notes: string | null;
+}
+
+function parseTimeToMinutes(t: string | null | undefined): number | null {
+  if (t == null || t === "") return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (Number.isNaN(h) || Number.isNaN(min)) return null;
+  return h * 60 + min;
+}
+
+function sessionDurationMinutes(start: string | null, end: string | null): number {
+  const a = parseTimeToMinutes(start);
+  const b = parseTimeToMinutes(end);
+  if (a === null || b === null || b <= a) return 60;
+  return b - a;
+}
+
+function workoutFromApi(ts: TrainingSessionApi): WorkoutSession {
+  return {
+    id: ts.id,
+    date: ts.date || "",
+    type: ts.session_type?.trim() || "Training session",
+    duration: sessionDurationMinutes(ts.start_time, ts.end_time),
+    status: ts.status,
+    notes: ts.notes?.trim() ? ts.notes.trim() : null,
+  };
+}
+
+/** Avoid UTC midnight shifting the calendar day for YYYY-MM-DD from the API. */
+function formatCalendarDay(isoDate: string): string {
+  const anchor = /^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? `${isoDate}T12:00:00` : isoDate;
+  const d = new Date(anchor);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 }
 
 interface Assessment {
@@ -113,6 +150,16 @@ export function ClientProfile() {
           c.assessments = assessRes.assessments.map(assessmentFromApi);
         } catch {
           c.assessments = [];
+        }
+        try {
+          const tsRes = await api.listAdminClientTrainingSessions(id);
+          c.workoutHistory = tsRes.training_sessions.map(workoutFromApi);
+          const newest = tsRes.training_sessions.find((s) => s.date);
+          if (newest?.date) {
+            c.lastActivity = newest.date;
+          }
+        } catch {
+          c.workoutHistory = [];
         }
         setClient(c);
       })
@@ -384,8 +431,8 @@ export function ClientProfile() {
                 <div>
                   <span className="text-[#9B9B9B] text-sm">Last Activity</span>
                   <p className="text-white">
-                    {client.lastActivity && client.lastActivity !== "—" && !Number.isNaN(Date.parse(client.lastActivity))
-                      ? new Date(client.lastActivity).toLocaleDateString()
+                    {client.lastActivity && client.lastActivity !== "—"
+                      ? formatCalendarDay(client.lastActivity)
                       : "—"}
                   </p>
                 </div>
@@ -424,62 +471,72 @@ export function ClientProfile() {
               <div>
                 <h3 className="text-white text-xl">Attendance Tracker</h3>
                 <p className="text-[#9B9B9B] text-sm mt-1">
-                  {client.sessionsCompleted} total sessions on record
+                  {client.workoutHistory.length} session{client.workoutHistory.length === 1 ? "" : "s"} on the
+                  schedule ({client.sessionsCompleted} completed in package)
                 </p>
               </div>
-              <button
-                type="button"
-                disabled
-                title="Not available yet — log sessions from the schedule calendar"
-                className="px-4 py-2 bg-[#9B7E3A]/50 text-white text-sm uppercase tracking-wider cursor-not-allowed opacity-70"
+              <Link
+                to="/admin?tab=calendar"
+                className="inline-flex items-center justify-center px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#B8963E] transition-colors"
               >
-                Log Session
-              </button>
+                Open calendar
+              </Link>
             </div>
 
             {/* Timeline View */}
             <div className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
               <div className="space-y-4">
-                {client.workoutHistory.map((session, index) => (
-                  <div 
-                    key={session.id} 
-                    className="flex items-center gap-4 p-4 bg-[#1a1a1a] border border-[#3a3a3a] hover:border-[#9B7E3A] transition-colors group"
-                  >
-                    {/* Date Circle */}
-                    <div className="flex flex-col items-center justify-center w-16 h-16 bg-[#9B7E3A]/10 border border-[#9B7E3A] flex-shrink-0">
-                      <span className="text-[#9B7E3A] text-lg font-light">
-                        {new Date(session.date).getDate()}
-                      </span>
-                      <span className="text-[#9B7E3A] text-xs uppercase">
-                        {new Date(session.date).toLocaleDateString('en-US', { month: 'short' })}
-                      </span>
-                    </div>
-
-                    {/* Session Info */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <Dumbbell className="w-4 h-4 text-[#9B7E3A]" />
-                        <h4 className="text-white font-light">{session.type}</h4>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-[#9B9B9B] text-sm">
-                        <Calendar className="w-3 h-3" />
-                        <span>{new Date(session.date).toLocaleDateString('en-US', { weekday: 'long' })}</span>
-                        <span className="text-[#3a3a3a]">•</span>
-                        <span>{session.duration} minutes</span>
-                      </div>
-                    </div>
-
-                    {/* Edit Button */}
-                    <button
-                      type="button"
-                      disabled
-                      title="Not available yet"
-                      className="text-[#9B9B9B] text-sm uppercase tracking-wider opacity-0 group-hover:opacity-40 cursor-not-allowed transition-opacity"
+                {client.workoutHistory.map((session) => {
+                  const dateAnchor = session.date ? `${session.date}T12:00:00` : "";
+                  const dateObj = dateAnchor ? new Date(dateAnchor) : null;
+                  const statusLabel = session.status.replace(/_/g, " ");
+                  return (
+                    <div
+                      key={session.id}
+                      className="flex items-center gap-4 p-4 bg-[#1a1a1a] border border-[#3a3a3a] hover:border-[#9B7E3A] transition-colors group"
                     >
-                      Edit
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex flex-col items-center justify-center w-16 h-16 bg-[#9B7E3A]/10 border border-[#9B7E3A] flex-shrink-0">
+                        <span className="text-[#9B7E3A] text-lg font-light">
+                          {dateObj && !Number.isNaN(dateObj.getTime()) ? dateObj.getDate() : "—"}
+                        </span>
+                        <span className="text-[#9B7E3A] text-xs uppercase">
+                          {dateObj && !Number.isNaN(dateObj.getTime())
+                            ? dateObj.toLocaleDateString("en-US", { month: "short" })
+                            : "—"}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                          <Dumbbell className="w-4 h-4 text-[#9B7E3A] flex-shrink-0" />
+                          <h4 className="text-white font-light">{session.type}</h4>
+                          <span className="text-[#6b6b6b] text-xs uppercase tracking-wider">{statusLabel}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-[#9B9B9B] text-sm">
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {dateObj && !Number.isNaN(dateObj.getTime())
+                              ? dateObj.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
+                              : "Date TBD"}
+                          </span>
+                          <span className="text-[#3a3a3a]">•</span>
+                          <span>{session.duration} min</span>
+                        </div>
+                        {session.notes ? (
+                          <p className="text-[#7a7a7a] text-xs mt-2 line-clamp-2">{session.notes}</p>
+                        ) : null}
+                      </div>
+
+                      <Link
+                        to="/admin?tab=calendar"
+                        title="Manage sessions on the admin calendar"
+                        className="text-[#9B7E3A] text-sm uppercase tracking-wider opacity-0 group-hover:opacity-100 hover:text-white transition-opacity flex-shrink-0"
+                      >
+                        Calendar
+                      </Link>
+                    </div>
+                  );
+                })}
               </div>
 
               {client.workoutHistory.length === 0 && (

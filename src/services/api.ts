@@ -284,6 +284,13 @@ export const api = {
     return request<unknown>(`/api/v1/admin/clients/${id}`, { method: "DELETE" });
   },
 
+  listAdminClientTrainingSessions(clientId: string) {
+    return request<{ training_sessions: TrainingSessionApi[] }>(
+      `/api/v1/admin/clients/${clientId}/training_sessions`,
+      { method: "GET" }
+    );
+  },
+
   listAdminAssessments(clientId: string) {
     return request<{ assessments: ApiAssessment[] }>(
       `/api/v1/admin/clients/${clientId}/assessments`,
