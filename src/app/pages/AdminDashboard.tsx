@@ -32,6 +32,7 @@ export function AdminDashboard() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     api
@@ -122,13 +123,34 @@ export function AdminDashboard() {
     }
   };
 
+  function openInviteModal() {
+    setInviteFeedback(null);
+    setShowInviteModal(true);
+  }
+
+  function closeInviteModal() {
+    if (inviteLoading) return;
+    setShowInviteModal(false);
+    setInviteFeedback(null);
+  }
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl text-white mb-2">Admin Dashboard</h1>
-          <p className="text-[#9B9B9B]">Manage client profiles and track progress</p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-4xl text-white mb-2">Admin Dashboard</h1>
+            <p className="text-[#9B9B9B]">Manage client profiles and track progress</p>
+          </div>
+          <button
+            type="button"
+            onClick={openInviteModal}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors shrink-0"
+          >
+            <UserPlus className="w-5 h-5" aria-hidden />
+            Invite admin
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -164,49 +186,6 @@ export function AdminDashboard() {
             </div>
             <p className="text-[#9B9B9B] text-xs lg:text-sm">New Inquiries</p>
           </div>
-        </div>
-
-        {/* Invite admin */}
-        <div className="mb-8 bg-[#2a2a2a] border border-[#9B7E3A]/20 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <UserPlus className="w-6 h-6 text-[#9B7E3A]" />
-            <div>
-              <h2 className="text-lg text-white font-medium">Invite admin</h2>
-              <p className="text-[#9B9B9B] text-sm">
-                Send an email with a link to set a password. New users are created as admins; existing clients are promoted.
-              </p>
-            </div>
-          </div>
-          <form onSubmit={handleInviteAdmin} className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="invite-admin-email" className="sr-only">
-                Email
-              </label>
-              <input
-                id="invite-admin-email"
-                type="email"
-                autoComplete="email"
-                placeholder="colleague@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#9B9B9B] focus:outline-none focus:border-[#9B7E3A]"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={inviteLoading}
-              className="px-6 py-3 bg-[#9B7E3A] text-[#1a1a1a] hover:bg-[#B8963E] transition-colors disabled:opacity-50 font-medium"
-            >
-              {inviteLoading ? "Sending…" : "Send invite"}
-            </button>
-          </form>
-          {inviteFeedback && (
-            <p
-              className={`mt-3 text-sm ${inviteFeedback.type === "ok" ? "text-green-400" : "text-red-400"}`}
-            >
-              {inviteFeedback.text}
-            </p>
-          )}
         </div>
 
         {/* Main Tabs Navigation */}
@@ -625,6 +604,89 @@ export function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {showInviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => closeInviteModal()}
+          onKeyDown={(ev) => ev.key === "Escape" && closeInviteModal()}
+          role="presentation"
+        >
+          <div
+            className="relative w-full max-w-md bg-[#2a2a2a] border border-[#9B7E3A]/30 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-admin-title"
+          >
+            <button
+              type="button"
+              onClick={() => closeInviteModal()}
+              disabled={inviteLoading}
+              className="absolute top-4 right-4 text-[#9B9B9B] hover:text-white transition-colors disabled:opacity-40"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center gap-3 mb-2">
+                <UserPlus className="w-8 h-8 text-[#9B7E3A] shrink-0" aria-hidden />
+                <h2 id="invite-admin-title" className="text-xl text-white font-medium pr-8">
+                  Invite admin
+                </h2>
+              </div>
+              <p className="text-[#9B9B9B] text-sm mb-6 leading-relaxed">
+                Send an email with a link to set a password. New users are created as admins; existing clients are
+                promoted.
+              </p>
+
+              <form onSubmit={handleInviteAdmin} className="space-y-4">
+                <div>
+                  <label htmlFor="invite-admin-email" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Email
+                  </label>
+                  <input
+                    id="invite-admin-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="colleague@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:outline-none focus:border-[#9B7E3A]"
+                  />
+                </div>
+                {inviteFeedback && (
+                  <p
+                    className={`text-sm ${inviteFeedback.type === "ok" ? "text-green-400" : "text-red-400"}`}
+                    role={inviteFeedback.type === "err" ? "alert" : undefined}
+                  >
+                    {inviteFeedback.text}
+                  </p>
+                )}
+                <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => closeInviteModal()}
+                    disabled={inviteLoading}
+                    className="px-4 py-3 text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviteLoading}
+                    className="px-6 py-3 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors disabled:opacity-50"
+                  >
+                    {inviteLoading ? "Sending…" : "Send invite"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
