@@ -2,7 +2,28 @@ import { useEffect, useState } from "react";
 import { Clock, Calendar, TrendingUp, BarChart3 } from "lucide-react";
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
-import { formatLocalDateKey } from "@/utils/localDate";
+import { formatDisplayDate, formatLocalDateKey } from "@/utils/localDate";
+import { sessionTypeFromApi } from "@/utils/trainingSessionType";
+
+/** Parse HH:MM or H:MM (optional :ss) to minutes from midnight; null if invalid. */
+function timeToMinutes(clock: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(clock.trim());
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (Number.isNaN(h) || Number.isNaN(min) || h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/** Duration in hours; if end is before start, assume end is next calendar day. */
+function calculateSessionHours(startTime: string, endTime: string): number {
+  const startM = timeToMinutes(startTime);
+  const endM = timeToMinutes(endTime);
+  if (startM === null || endM === null) return 0;
+  let diffMin = endM - startM;
+  if (diffMin < 0) diffMin += 24 * 60;
+  return Math.max(0, diffMin / 60);
+}
 
 interface WeekData {
   weekStart: string;
@@ -15,8 +36,10 @@ interface WeekData {
 
 export function HoursWorked() {
   const [allSessions, setAllSessions] = useState<Session[]>([]);
+  const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
 
   useEffect(() => {
+    setLoadState("loading");
     api
       .listTrainingSessions()
       .then((res) => {
@@ -28,26 +51,18 @@ export function HoursWorked() {
             date: (s.date || "").split("T")[0],
             startTime: s.start_time || "09:00",
             endTime: s.end_time || "10:00",
-            sessionType: s.session_type === "MATrX" ? "MATrX" : "Training",
+            sessionType: sessionTypeFromApi(s.session_type),
             notes: s.notes || "",
             status: s.status as Session["status"],
           }))
         );
+        setLoadState("ok");
       })
-      .catch(() => setAllSessions([]));
+      .catch(() => {
+        setAllSessions([]);
+        setLoadState("error");
+      });
   }, []);
-  
-  // Calculate duration in hours for a session (same calendar day; if end < start, treat as next day)
-  const calculateSessionHours = (startTime: string, endTime: string): number => {
-    const base = "2000-01-01";
-    const start = new Date(`${base}T${startTime}`);
-    let end = new Date(`${base}T${endTime}`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-    if (end.getTime() < start.getTime()) {
-      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-    }
-    return Math.max(0, (end.getTime() - start.getTime()) / 1000 / 60 / 60);
-  };
 
   /** Monday start of week; does not mutate the argument. */
   const getWeekStart = (date: Date): Date => {
@@ -98,10 +113,8 @@ export function HoursWorked() {
     }
   });
 
-  // Convert to array and sort by week (most recent first)
-  const weekDataArray = Array.from(sessionsByWeek.values()).sort((a, b) => {
-    return new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime();
-  });
+  // ISO week keys sort lexicographically by date
+  const weekDataArray = Array.from(sessionsByWeek.values()).sort((a, b) => b.weekStart.localeCompare(a.weekStart));
 
   // Calculate totals
   const totalHoursAllTime = weekDataArray.reduce((sum, week) => sum + week.totalHours, 0);
@@ -125,20 +138,25 @@ export function HoursWorked() {
       matrxHours: 0,
     };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
-
   return (
     <div>
+      {loadState === "error" && (
+        <div
+          className="mb-6 border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100"
+          role="alert"
+        >
+          Could not load training sessions. Open the Calendar tab or refresh the page and try again.
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <Clock className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{thisCalendarWeekData.totalHours.toFixed(1)}</span>
+            <span className="text-2xl text-white font-light">
+              {loadState === "loading" ? "—" : thisCalendarWeekData.totalHours.toFixed(1)}
+            </span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Hours This Week</p>
         </div>
@@ -146,15 +164,20 @@ export function HoursWorked() {
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{avgHoursPerWeek.toFixed(1)}</span>
+            <span className="text-2xl text-white font-light">
+              {loadState === "loading" ? "—" : avgHoursPerWeek.toFixed(1)}
+            </span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Avg Hours Per Week</p>
+          <p className="text-[#6b6b6b] text-xs mt-1">Across weeks with completed sessions</p>
         </div>
 
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <BarChart3 className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{totalHoursAllTime.toFixed(1)}</span>
+            <span className="text-2xl text-white font-light">
+              {loadState === "loading" ? "—" : totalHoursAllTime.toFixed(1)}
+            </span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Total Hours Logged</p>
         </div>
@@ -162,7 +185,9 @@ export function HoursWorked() {
         <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a]">
           <div className="flex items-center justify-between mb-2">
             <Calendar className="w-5 h-5 text-[#9B7E3A]" />
-            <span className="text-2xl text-white font-light">{thisCalendarWeekData.sessionCount}</span>
+            <span className="text-2xl text-white font-light">
+              {loadState === "loading" ? "—" : thisCalendarWeekData.sessionCount}
+            </span>
           </div>
           <p className="text-[#9B9B9B] text-sm">Sessions This Week</p>
         </div>
@@ -190,7 +215,13 @@ export function HoursWorked() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#3a3a3a]">
-              {weekDataArray.length === 0 ? (
+              {loadState === "loading" ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-[#9B9B9B] text-sm">
+                    Loading weekly breakdown…
+                  </td>
+                </tr>
+              ) : weekDataArray.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <Clock className="w-12 h-12 text-[#6b6b6b] mx-auto mb-3" />
@@ -216,8 +247,8 @@ export function HoursWorked() {
                             </span>
                           )}
                           <div>
-                            <p className="text-white">{formatDate(week.weekStart)}</p>
-                            <p className="text-[#6b6b6b] text-sm">to {formatDate(week.weekEnd)}</p>
+                            <p className="text-white">{formatDisplayDate(week.weekStart)}</p>
+                            <p className="text-[#6b6b6b] text-sm">to {formatDisplayDate(week.weekEnd)}</p>
                           </div>
                         </div>
                       </td>

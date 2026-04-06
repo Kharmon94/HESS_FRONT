@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Plus, X, Check, Edit, Trash2 } from "lucide-
 import type { Session } from "../data/sessions";
 import { api } from "@/services/api";
 import { formatLocalDateKey } from "@/utils/localDate";
+import { sessionTypeFromApi } from "@/utils/trainingSessionType";
 
 type CalendarView = "month" | "week" | "day";
 
@@ -53,7 +54,7 @@ export function AdminCalendar() {
           date: (s.date || "").split("T")[0],
           startTime: s.start_time || "09:00",
           endTime: s.end_time || "10:00",
-          sessionType: s.session_type === "MATrX" ? "MATrX" : "Training",
+          sessionType: sessionTypeFromApi(s.session_type),
           notes: s.notes || "",
           status: s.status as Session["status"],
         }));
@@ -320,7 +321,7 @@ export function AdminCalendar() {
         date: (ts.date || "").split("T")[0],
         startTime: ts.start_time || newEventForm.startTime,
         endTime: ts.end_time || newEventForm.endTime,
-        sessionType: ts.session_type === "MATrX" ? "MATrX" : "Training",
+        sessionType: sessionTypeFromApi(ts.session_type),
         notes: ts.notes || newEventForm.notes,
         status: (ts.status as Session["status"]) || "scheduled",
       };
@@ -378,7 +379,7 @@ export function AdminCalendar() {
         date: (ts.date || "").split("T")[0],
         startTime: ts.start_time || editEventForm.startTime,
         endTime: ts.end_time || editEventForm.endTime,
-        sessionType: ts.session_type === "MATrX" ? "MATrX" : "Training",
+        sessionType: sessionTypeFromApi(ts.session_type),
         notes: ts.notes || editEventForm.notes,
         status: (ts.status as Session["status"]) || editEventForm.status,
       });
