@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { Search, Users, TrendingUp, Calendar, Phone, Mail, MessageSquare, CheckCircle, XCircle, Clock, Edit, X, UserPlus } from "lucide-react";
 import { AdminCalendar } from "../components/AdminCalendar";
 import { HoursWorked } from "../components/HoursWorked";
-import { useInquiries } from "../contexts/InquiryContext";
+import { useInquiries, type Inquiry } from "../contexts/InquiryContext";
 import { api } from "@/services/api";
 import { formatDisplayDate } from "@/utils/localDate";
 
@@ -20,20 +20,9 @@ interface Client {
   lastActivity: string;
 }
 
-interface Inquiry {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  message: string;
-  interestedPackage: string;
-  submittedDate: string;
-  status: "new" | "contacted" | "closed";
-}
-
-
 export function AdminDashboard() {
-  const { inquiries, updateInquiryStatus, inquiryUpdateError, clearInquiryUpdateError } = useInquiries();
+  const { inquiries, updateInquiryStatus, refetchInquiries, inquiryUpdateError, clearInquiryUpdateError } =
+    useInquiries();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   /** API has no inactive flag yet; only "all" vs "active" (same data today) is meaningful. */
@@ -73,6 +62,12 @@ export function AdminDashboard() {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (activeTab === "inquiries") {
+      void refetchInquiries();
+    }
+  }, [activeTab, refetchInquiries]);
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -518,16 +513,21 @@ export function AdminDashboard() {
               </div>
             )}
             <div className="space-y-4">
-              {inquiries.map((inquiry) => (
+              {inquiries.map((inquiry: Inquiry) => {
+                const displayName = inquiry.name.trim() || inquiry.email;
+                const phoneDigits = inquiry.phone.trim();
+                const phoneForTel = phoneDigits.replace(/\D/g, "");
+                return (
                 <div key={inquiry.id} className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Inquiry Info */}
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h3 className="text-white text-lg mb-1">{inquiry.name}</h3>
+                          <h3 className="text-white text-lg mb-1">{displayName}</h3>
                           <p className="text-[#9B9B9B] text-sm">
-                            {new Date(inquiry.submittedDate).toLocaleDateString()} • Interested in: {inquiry.interestedPackage}
+                            {formatDisplayDate(inquiry.submittedDate)} • Interested in:{" "}
+                            {inquiry.interestedPackage.trim() || "—"}
                           </p>
                         </div>
                         <span
@@ -555,9 +555,13 @@ export function AdminDashboard() {
                         </div>
                         <div className="flex items-center gap-2 text-[#9B9B9B] text-sm">
                           <Phone className="w-4 h-4" />
-                          <a href={`tel:${inquiry.phone}`} className="hover:text-white transition-colors">
-                            {inquiry.phone}
-                          </a>
+                          {phoneDigits && phoneForTel.length >= 7 ? (
+                            <a href={`tel:${phoneForTel}`} className="hover:text-white transition-colors">
+                              {inquiry.phone}
+                            </a>
+                          ) : (
+                            <span>—</span>
+                          )}
                         </div>
                       </div>
 
@@ -567,7 +571,15 @@ export function AdminDashboard() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex lg:flex-col gap-2 lg:w-40">
+                    <div className="flex lg:flex-col gap-2 lg:w-44">
+                      <button
+                        type="button"
+                        onClick={() => handleInquiryStatusChange(inquiry.id, "new")}
+                        className="flex-1 lg:flex-none px-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors whitespace-nowrap"
+                        disabled={inquiry.status === "new"}
+                      >
+                        Mark New
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleInquiryStatusChange(inquiry.id, "contacted")}
@@ -593,7 +605,8 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {inquiries.length === 0 && (

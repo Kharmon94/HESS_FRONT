@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, type ApiInquiry } from "@/services/api";
 import { useAuth } from "./AuthContext";
 
@@ -17,6 +17,7 @@ interface InquiryContextType {
   inquiries: Inquiry[];
   addInquiry: (inquiry: Omit<Inquiry, "id" | "submittedDate" | "status">) => Promise<void>;
   updateInquiryStatus: (inquiryId: string, status: "new" | "contacted" | "closed") => void;
+  refetchInquiries: () => Promise<void>;
   inquiryUpdateError: string | null;
   clearInquiryUpdateError: () => void;
 }
@@ -24,7 +25,6 @@ interface InquiryContextType {
 const InquiryContext = createContext<InquiryContextType | undefined>(undefined);
 
 function inquiryFromApi(i: ApiInquiry): Inquiry {
-  const date = (i.created_at ?? "").split("T")[0];
   const st = i.status;
   const status: Inquiry["status"] =
     st === "contacted" || st === "closed" || st === "new" ? st : "new";
@@ -35,7 +35,7 @@ function inquiryFromApi(i: ApiInquiry): Inquiry {
     phone: i.phone ?? "",
     message: i.message,
     interestedPackage: i.interested_package ?? "",
-    submittedDate: date || new Date().toISOString().split("T")[0],
+    submittedDate: (i.created_at ?? "").trim() || new Date().toISOString(),
     status,
   };
 }
@@ -45,25 +45,32 @@ export function InquiryProvider({ children }: { children: ReactNode }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [inquiryUpdateError, setInquiryUpdateError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (currentUser?.role !== "admin") {
-      setInquiries([]);
-      return;
-    }
-    let cancelled = false;
-    api
-      .listAdminInquiries()
-      .then((res) => {
-        if (cancelled) return;
+  const fetchInquiries = useCallback(
+    async (opts?: { reportError?: boolean }) => {
+      const reportError = opts?.reportError ?? false;
+      if (currentUser?.role !== "admin") {
+        setInquiries([]);
+        return;
+      }
+      try {
+        const res = await api.listAdminInquiries();
         setInquiries(res.inquiries.map(inquiryFromApi));
-      })
-      .catch(() => {
-        if (!cancelled) setInquiries([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser?.id, currentUser?.role]);
+        if (reportError) setInquiryUpdateError(null);
+      } catch {
+        setInquiries([]);
+        if (reportError) setInquiryUpdateError("Could not load inquiries.");
+      }
+    },
+    [currentUser?.id, currentUser?.role]
+  );
+
+  useEffect(() => {
+    void fetchInquiries();
+  }, [fetchInquiries]);
+
+  const refetchInquiries = useCallback(async () => {
+    await fetchInquiries({ reportError: true });
+  }, [fetchInquiries]);
 
   const addInquiry = async (inquiry: Omit<Inquiry, "id" | "submittedDate" | "status">) => {
     const { inquiry: created } = await api.createInquiry({
@@ -73,11 +80,13 @@ export function InquiryProvider({ children }: { children: ReactNode }) {
       message: inquiry.message,
       interested_package: inquiry.interestedPackage,
     });
-    const row = inquiryFromApi(created);
-    setInquiries((prev) => {
-      const rest = prev.filter((x) => x.id !== row.id);
-      return [row, ...rest];
-    });
+    if (currentUser?.role === "admin") {
+      const row = inquiryFromApi(created);
+      setInquiries((prev) => {
+        const rest = prev.filter((x) => x.id !== row.id);
+        return [row, ...rest];
+      });
+    }
   };
 
   const updateInquiryStatus = (inquiryId: string, status: "new" | "contacted" | "closed") => {
@@ -102,6 +111,7 @@ export function InquiryProvider({ children }: { children: ReactNode }) {
         inquiries,
         addInquiry,
         updateInquiryStatus,
+        refetchInquiries,
         inquiryUpdateError,
         clearInquiryUpdateError,
       }}
