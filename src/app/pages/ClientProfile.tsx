@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { api, type ApiUser } from "@/services/api";
+import { api, type ApiAssessment, type ApiUser } from "@/services/api";
 import { formatDisplayDate } from "@/utils/localDate";
 import { ArrowLeft, Phone, Mail, Calendar, TrendingUp, Dumbbell, Target, FileText, Plus, CreditCard, MapPin } from "lucide-react";
 
@@ -12,11 +12,23 @@ interface WorkoutSession {
 }
 
 interface Assessment {
+  id: string;
   date: string;
   strength: number;
   mobility: number;
   endurance: number;
   notes: string;
+}
+
+function assessmentFromApi(a: ApiAssessment): Assessment {
+  return {
+    id: a.id,
+    date: a.performed_on || "",
+    strength: a.strength,
+    mobility: a.mobility,
+    endurance: a.endurance,
+    notes: a.notes || "",
+  };
 }
 
 interface Client {
@@ -74,6 +86,16 @@ export function ClientProfile() {
   const [activeTab, setActiveTab] = useState<"overview" | "workouts" | "assessments">("overview");
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showNewAssessment, setShowNewAssessment] = useState(false);
+  const [detailAssessment, setDetailAssessment] = useState<Assessment | null>(null);
+  const [assessmentSaving, setAssessmentSaving] = useState(false);
+  const [newAssessmentForm, setNewAssessmentForm] = useState({
+    performed_on: "",
+    strength: 50,
+    mobility: 50,
+    endurance: 50,
+    notes: "",
+  });
 
   useEffect(() => {
     if (!id) {
@@ -84,10 +106,69 @@ export function ClientProfile() {
     setLoading(true);
     api
       .getAdminClient(id)
-      .then((res) => setClient(clientFromApi(res.client)))
+      .then(async (clientRes) => {
+        const c = clientFromApi(clientRes.client);
+        try {
+          const assessRes = await api.listAdminAssessments(id);
+          c.assessments = assessRes.assessments.map(assessmentFromApi);
+        } catch {
+          c.assessments = [];
+        }
+        setClient(c);
+      })
       .catch(() => setClient(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  function openNewAssessmentModal() {
+    setNewAssessmentForm({
+      performed_on: new Date().toISOString().slice(0, 10),
+      strength: 50,
+      mobility: 50,
+      endurance: 50,
+      notes: "",
+    });
+    setShowNewAssessment(true);
+  }
+
+  async function submitNewAssessment() {
+    if (!id || !newAssessmentForm.performed_on.trim()) return;
+    setAssessmentSaving(true);
+    try {
+      const { assessment } = await api.createAdminAssessment(id, {
+        performed_on: newAssessmentForm.performed_on,
+        strength: Math.min(100, Math.max(0, Math.round(Number(newAssessmentForm.strength)))),
+        mobility: Math.min(100, Math.max(0, Math.round(Number(newAssessmentForm.mobility)))),
+        endurance: Math.min(100, Math.max(0, Math.round(Number(newAssessmentForm.endurance)))),
+        notes: newAssessmentForm.notes.trim() || undefined,
+      });
+      const row = assessmentFromApi(assessment);
+      setClient((prev) =>
+        prev ? { ...prev, assessments: [row, ...prev.assessments.filter((a) => a.id !== row.id)] } : null
+      );
+      setShowNewAssessment(false);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not save assessment");
+    } finally {
+      setAssessmentSaving(false);
+    }
+  }
+
+  async function deleteAssessment(assessmentId: string) {
+    if (!window.confirm("Delete this assessment?")) return;
+    setAssessmentSaving(true);
+    try {
+      await api.deleteAdminAssessment(assessmentId);
+      setClient((prev) =>
+        prev ? { ...prev, assessments: prev.assessments.filter((a) => a.id !== assessmentId) } : null
+      );
+      setDetailAssessment(null);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not delete");
+    } finally {
+      setAssessmentSaving(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -417,22 +498,24 @@ export function ClientProfile() {
               <h3 className="text-white text-xl">Performance Assessments</h3>
               <button
                 type="button"
-                disabled
-                title="Not available yet"
-                className="px-4 py-2 bg-[#9B7E3A]/50 text-white text-sm uppercase tracking-wider cursor-not-allowed opacity-70"
+                onClick={openNewAssessmentModal}
+                className="px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#B8963E] transition-colors"
               >
                 New Assessment
               </button>
             </div>
-            {client.assessments.map((assessment, index) => (
-              <div key={index} className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
+            {client.assessments.map((assessment) => (
+              <div key={assessment.id} className="bg-[#2a2a2a] border border-[#3a3a3a] p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-white text-lg">{new Date(assessment.date).toLocaleDateString()}</h4>
+                  <h4 className="text-white text-lg">
+                    {assessment.date
+                      ? new Date(assessment.date + "T12:00:00").toLocaleDateString()
+                      : "—"}
+                  </h4>
                   <button
                     type="button"
-                    disabled
-                    title="Not available yet"
-                    className="text-[#9B7E3A] text-sm uppercase tracking-wider opacity-40 cursor-not-allowed"
+                    onClick={() => setDetailAssessment(assessment)}
+                    className="text-[#9B7E3A] text-sm uppercase tracking-wider hover:text-white transition-colors"
                   >
                     View Details
                   </button>
@@ -477,13 +560,162 @@ export function ClientProfile() {
                 </div>
                 <div>
                   <h5 className="text-[#9B7E3A] text-sm uppercase tracking-wider mb-2">Notes</h5>
-                  <p className="text-[#9B9B9B]">{assessment.notes}</p>
+                  <p className="text-[#9B9B9B]">{assessment.notes || "—"}</p>
                 </div>
               </div>
             ))}
+            {client.assessments.length === 0 && (
+              <div className="text-center py-12">
+                <Target className="w-12 h-12 text-[#9B9B9B] mx-auto mb-4" />
+                <p className="text-[#9B9B9B]">No assessments yet. Add one to track strength, mobility, and endurance.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {showNewAssessment && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !assessmentSaving && setShowNewAssessment(false)}
+          onKeyDown={(ev) => ev.key === "Escape" && !assessmentSaving && setShowNewAssessment(false)}
+          role="presentation"
+        >
+          <div
+            className="bg-[#2a2a2a] border border-[#3a3a3a] max-w-lg w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-assessment-title"
+          >
+            <h3 id="new-assessment-title" className="text-white text-xl mb-6">
+              New assessment
+            </h3>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-[#9B9B9B] text-sm uppercase tracking-wider">Date</span>
+                <input
+                  type="date"
+                  value={newAssessmentForm.performed_on}
+                  onChange={(e) => setNewAssessmentForm((f) => ({ ...f, performed_on: e.target.value }))}
+                  className="mt-1 w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white px-3 py-2"
+                />
+              </label>
+              {(["strength", "mobility", "endurance"] as const).map((field) => (
+                <label key={field} className="block">
+                  <span className="text-[#9B9B9B] text-sm capitalize">{field} (0–100)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={newAssessmentForm[field]}
+                    onChange={(e) =>
+                      setNewAssessmentForm((f) => ({ ...f, [field]: Number(e.target.value) }))
+                    }
+                    className="mt-1 w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white px-3 py-2"
+                  />
+                </label>
+              ))}
+              <label className="block">
+                <span className="text-[#9B9B9B] text-sm uppercase tracking-wider">Notes</span>
+                <textarea
+                  value={newAssessmentForm.notes}
+                  onChange={(e) => setNewAssessmentForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={4}
+                  className="mt-1 w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white px-3 py-2 resize-y"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 mt-8">
+              <button
+                type="button"
+                disabled={assessmentSaving}
+                onClick={() => setShowNewAssessment(false)}
+                className="px-4 py-2 text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={assessmentSaving || !newAssessmentForm.performed_on}
+                onClick={() => void submitNewAssessment()}
+                className="px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#B8963E] disabled:opacity-50"
+              >
+                {assessmentSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailAssessment && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !assessmentSaving && setDetailAssessment(null)}
+          role="presentation"
+        >
+          <div
+            className="bg-[#2a2a2a] border border-[#3a3a3a] max-w-lg w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assessment-detail-title"
+          >
+            <h3 id="assessment-detail-title" className="text-white text-xl mb-2">
+              Assessment
+            </h3>
+            <p className="text-[#9B9B9B] text-sm mb-6">
+              {detailAssessment.date
+                ? new Date(detailAssessment.date + "T12:00:00").toLocaleDateString(undefined, {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "—"}
+            </p>
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              {(["strength", "mobility", "endurance"] as const).map((field) => (
+                <div key={field}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-[#9B9B9B] capitalize">{field}</span>
+                    <span className="text-white">{detailAssessment[field]}%</span>
+                  </div>
+                  <div className="bg-[#1a1a1a] h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#9B7E3A]"
+                      style={{ width: `${detailAssessment[field]}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mb-8">
+              <h5 className="text-[#9B7E3A] text-sm uppercase tracking-wider mb-2">Notes</h5>
+              <p className="text-[#9B9B9B] whitespace-pre-wrap">{detailAssessment.notes || "—"}</p>
+            </div>
+            <div className="flex justify-between gap-3">
+              <button
+                type="button"
+                disabled={assessmentSaving}
+                onClick={() => void deleteAssessment(detailAssessment.id)}
+                className="px-4 py-2 text-red-400/90 text-sm uppercase tracking-wider hover:text-red-300 disabled:opacity-50"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                disabled={assessmentSaving}
+                onClick={() => setDetailAssessment(null)}
+                className="px-4 py-2 bg-[#9B7E3A] text-white text-sm uppercase tracking-wider hover:bg-[#B8963E]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

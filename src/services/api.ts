@@ -66,6 +66,16 @@ export type ApiUser = {
   billing_address: string | null;
 };
 
+export type ApiAssessment = {
+  id: string;
+  client_id: string;
+  performed_on: string | null;
+  strength: number;
+  mobility: number;
+  endurance: number;
+  notes: string;
+};
+
 export type ApiInquiry = {
   id: string;
   name: string | null;
@@ -272,6 +282,49 @@ export const api = {
 
   deleteAdminClient(id: string) {
     return request<unknown>(`/api/v1/admin/clients/${id}`, { method: "DELETE" });
+  },
+
+  listAdminAssessments(clientId: string) {
+    return request<{ assessments: ApiAssessment[] }>(
+      `/api/v1/admin/clients/${clientId}/assessments`,
+      { method: "GET" }
+    );
+  },
+
+  createAdminAssessment(
+    clientId: string,
+    payload: {
+      performed_on: string;
+      strength: number;
+      mobility: number;
+      endurance: number;
+      notes?: string;
+    }
+  ) {
+    return request<{ assessment: ApiAssessment }>(`/api/v1/admin/clients/${clientId}/assessments`, {
+      method: "POST",
+      body: JSON.stringify({ assessment: payload }),
+    });
+  },
+
+  updateAdminAssessment(
+    id: string,
+    payload: Partial<{
+      performed_on: string;
+      strength: number;
+      mobility: number;
+      endurance: number;
+      notes: string;
+    }>
+  ) {
+    return request<{ assessment: ApiAssessment }>(`/api/v1/admin/assessments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ assessment: payload }),
+    });
+  },
+
+  deleteAdminAssessment(id: string) {
+    return request<unknown>(`/api/v1/admin/assessments/${id}`, { method: "DELETE" });
   },
 
   inviteAdmin(email: string) {
