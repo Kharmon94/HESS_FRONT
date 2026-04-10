@@ -1,11 +1,33 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Search, Users, TrendingUp, Calendar, Phone, Mail, MessageSquare, CheckCircle, XCircle, Clock, Edit, X, UserPlus } from "lucide-react";
+import {
+  Search,
+  Users,
+  TrendingUp,
+  Calendar,
+  Phone,
+  Mail,
+  MessageSquare,
+  CheckCircle,
+  Clock,
+  X,
+  UserPlus,
+  Wallet,
+  Menu,
+} from "lucide-react";
 import { AdminCalendar } from "../components/AdminCalendar";
-import { HoursWorked } from "../components/HoursWorked";
+import { AdminFinances } from "../components/AdminFinances";
 import { useInquiries, type Inquiry } from "../contexts/InquiryContext";
 import { api } from "@/services/api";
 import { formatDisplayDate } from "@/utils/localDate";
+
+type AdminSection = "calendar" | "clients" | "inquiries" | "finances";
+
+function normalizeAdminTab(raw: string | null): AdminSection {
+  if (raw === "clients" || raw === "inquiries" || raw === "finances" || raw === "calendar") return raw;
+  if (raw === "hours") return "calendar";
+  return "calendar";
+}
 
 interface Client {
   id: string;
@@ -18,23 +40,44 @@ interface Client {
   sessionsCompleted: number;
   sessionsRemaining: number;
   lastActivity: string;
+  package_price: string | null;
+  total_sessions_in_package: number;
 }
 
 export function AdminDashboard() {
   const { inquiries, updateInquiryStatus, refetchInquiries, inquiryUpdateError, clearInquiryUpdateError } =
     useInquiries();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   /** API has no inactive flag yet; only "all" vs "active" (same data today) is meaningful. */
   const [filterStatus, setFilterStatus] = useState<"all" | "active">("all");
-  const [activeTab, setActiveTab] = useState<"calendar" | "clients" | "inquiries" | "hours">("calendar");
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsReady, setClientsReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
+  const rawTab = searchParams.get("tab");
+  const activeTab = normalizeAdminTab(rawTab);
+
   useEffect(() => {
+    const normalized = normalizeAdminTab(rawTab);
+    if (rawTab !== normalized) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", normalized);
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [rawTab, setSearchParams]);
+
+  useEffect(() => {
+    setClientsReady(false);
     api
       .listAdminClients()
       .then((res) => {
@@ -50,25 +93,29 @@ export function AdminDashboard() {
             sessionsCompleted: u.sessions_completed ?? 0,
             sessionsRemaining: u.sessions_remaining ?? 0,
             lastActivity: "—",
+            package_price: u.package_price ?? null,
+            total_sessions_in_package: u.total_sessions_in_package ?? 0,
           }))
         );
       })
-      .catch(() => setClients([]));
+      .catch(() => setClients([]))
+      .finally(() => setClientsReady(true));
   }, []);
-
-  // Check for tab parameter in URL
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "clients" || tabParam === "inquiries" || tabParam === "hours" || tabParam === "calendar") {
-      setActiveTab(tabParam);
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab === "inquiries") {
       void refetchInquiries();
     }
   }, [activeTab, refetchInquiries]);
+
+  function goToTab(tab: AdminSection) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tab);
+      return next;
+    });
+    setSidebarOpen(false);
+  }
 
   const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -134,27 +181,124 @@ export function AdminDashboard() {
     setInviteFeedback(null);
   }
 
+  const financeClientsForProps = clients.map((c) => ({
+    id: c.id,
+    package_price: c.package_price,
+    total_sessions_in_package: c.total_sessions_in_package,
+    sessions_remaining: c.sessionsRemaining,
+  }));
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-4xl text-white mb-2">Admin Dashboard</h1>
-            <p className="text-[#9B9B9B]">Manage client profiles and track progress</p>
-          </div>
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-0 lg:flex-row lg:items-start lg:gap-8">
+        <div className="mb-4 flex items-center justify-between lg:hidden">
           <button
             type="button"
-            onClick={openInviteModal}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors shrink-0"
+            aria-expanded={sidebarOpen}
+            aria-controls="admin-sidebar"
+            onClick={() => setSidebarOpen((o) => !o)}
+            className="inline-flex items-center gap-2 border border-[#3a3a3a] bg-[#2a2a2a] px-4 py-2 text-sm uppercase tracking-wider text-white hover:border-[#9B7E3A]/40"
           >
-            <UserPlus className="w-5 h-5" aria-hidden />
-            Invite admin
+            <Menu className="h-5 w-5 shrink-0" aria-hidden />
+            Menu
           </button>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-8">
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            aria-label="Close menu"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <aside
+          id="admin-sidebar"
+          className={`fixed left-0 top-28 z-50 flex h-[calc(100dvh-7rem)] w-60 max-w-[85vw] flex-col border border-[#3a3a3a] bg-[#2a2a2a] p-3 shadow-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-auto lg:max-h-none lg:min-h-[min-content] lg:translate-x-0 lg:shadow-none lg:shrink-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
+        >
+          <nav className="flex flex-col gap-1 overflow-y-auto" aria-label="Admin sections">
+            <button
+              type="button"
+              onClick={() => goToTab("calendar")}
+              className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
+                activeTab === "calendar"
+                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
+                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
+              }`}
+            >
+              <Calendar className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">Schedule calendar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("clients")}
+              className={`relative flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
+                activeTab === "clients"
+                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
+                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
+              }`}
+            >
+              <Users className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">Client management</span>
+              {lowSessionsCount > 0 && (
+                <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{lowSessionsCount}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("inquiries")}
+              className={`relative flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
+                activeTab === "inquiries"
+                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
+                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
+              }`}
+            >
+              <MessageSquare className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">Inquiries</span>
+              {stats.newInquiries > 0 && (
+                <span className="shrink-0 rounded-full bg-[#9B7E3A] px-2 py-0.5 text-xs text-[#1a1a1a]">
+                  {stats.newInquiries}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("finances")}
+              className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
+                activeTab === "finances"
+                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
+                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
+              }`}
+            >
+              <Wallet className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">Finances</span>
+            </button>
+          </nav>
+        </aside>
+
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-7xl">
+            {/* Header */}
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-4xl text-white mb-2">Admin Dashboard</h1>
+                <p className="text-[#9B9B9B]">Manage client profiles and track progress</p>
+              </div>
+              <button
+                type="button"
+                onClick={openInviteModal}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors shrink-0"
+              >
+                <UserPlus className="w-5 h-5" aria-hidden />
+                Invite admin
+              </button>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-8">
           <div className="bg-[#2a2a2a] p-4 lg:p-6 border border-[#3a3a3a]">
             <div className="flex items-center justify-between mb-2">
               <Users className="w-4 lg:w-5 h-4 lg:h-5 text-[#9B7E3A]" />
@@ -186,75 +330,7 @@ export function AdminDashboard() {
             </div>
             <p className="text-[#9B9B9B] text-xs lg:text-sm">New Inquiries</p>
           </div>
-        </div>
-
-        {/* Main Tabs Navigation */}
-        <div className="mb-8">
-          <div className="grid grid-cols-2 lg:flex bg-[#2a2a2a] border border-[#9B7E3A]/20">
-            <button
-              type="button"
-              onClick={() => setActiveTab("calendar")}
-              className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors flex-1 ${
-                activeTab === "calendar"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:text-white hover:bg-[#9B7E3A]/10"
-              }`}
-            >
-              <Calendar className="w-4 lg:w-5 h-4 lg:h-5" />
-              <span className="hidden lg:inline">Schedule Calendar</span>
-              <span className="lg:hidden">Calendar</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("clients")}
-              className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-l lg:border-x border-[#9B7E3A]/20 flex-1 relative ${
-                activeTab === "clients"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:text-white hover:bg-[#9B7E3A]/10"
-              }`}
-            >
-              <Users className="w-4 lg:w-5 h-4 lg:h-5" />
-              <span className="hidden lg:inline">Client Management</span>
-              <span className="lg:hidden">Clients</span>
-              {lowSessionsCount > 0 && (
-                <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">
-                  {lowSessionsCount}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("inquiries")}
-              className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-t lg:border-t-0 flex-1 ${
-                activeTab === "inquiries"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:text-white hover:bg-[#9B7E3A]/10"
-              }`}
-            >
-              <MessageSquare className="w-4 lg:w-5 h-4 lg:h-5" />
-              <span className="hidden lg:inline">New Inquiries</span>
-              <span className="lg:hidden">Inquiries</span>
-              {stats.newInquiries > 0 && (
-                <span className="bg-[#9B7E3A] text-white text-xs px-2 py-1 rounded-full">
-                  {stats.newInquiries}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("hours")}
-              className={`px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-lg flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-3 transition-colors border-t border-l lg:border-t-0 border-[#9B7E3A]/20 flex-1 ${
-                activeTab === "hours"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:text-white hover:bg-[#9B7E3A]/10"
-              }`}
-            >
-              <Clock className="w-4 lg:w-5 h-4 lg:h-5" />
-              <span className="hidden lg:inline">Hours Worked</span>
-              <span className="lg:hidden">Hours</span>
-            </button>
-          </div>
-        </div>
+            </div>
 
         {/* Calendar Tab */}
         {activeTab === "calendar" && (
@@ -597,12 +673,14 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {/* Hours Worked Tab */}
-        {activeTab === "hours" && (
+        {/* Finances */}
+        {activeTab === "finances" && (
           <div>
-            <HoursWorked />
+            <AdminFinances clients={financeClientsForProps} clientsReady={clientsReady} />
           </div>
         )}
+          </div>
+        </main>
       </div>
 
       {showInviteModal && (
