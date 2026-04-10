@@ -1,12 +1,11 @@
 import { Mail, Phone, MapPin, Instagram, Facebook, X } from "lucide-react";
-import { Link } from "react-router";
 import footerLogo from "figma:asset/28506267c3262cff0dce64723e2cb1baca8b936e.png";
 
 export function Footer() {
   return (
     <footer className="bg-[#1a1a1a] border-t border-[#9B7E3A]/20">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-        <div className="grid md:grid-cols-4 gap-12 mb-12">
+        <div className="grid md:grid-cols-3 gap-12 mb-12">
           {/* Brand */}
           <div>
             <div className="mb-4">
@@ -15,33 +14,6 @@ export function Footer() {
             <p className="text-[#6b6b6b] leading-relaxed">
               Transform your potential with elite training and personalized wellness programs.
             </p>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <h4 className="text-white mb-4">Quick Links</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/" className="text-[#6b6b6b] hover:text-[#9B7E3A] transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link to="/about" className="text-[#6b6b6b] hover:text-[#9B7E3A] transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/#pricing" className="text-[#6b6b6b] hover:text-[#9B7E3A] transition-colors">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link to="/portal" className="text-[#6b6b6b] hover:text-[#9B7E3A] transition-colors">
-                  Login
-                </Link>
-              </li>
-            </ul>
           </div>
 
           {/* Contact */}

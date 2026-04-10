@@ -14,7 +14,7 @@ export function Pricing() {
   const plans = [
     {
       name: "Elite Evaluation",
-      price: "350",
+      price: "375",
       period: "one-time",
       description: "Perfect for those ready to take the first step",
       features: [
@@ -75,7 +75,7 @@ export function Pricing() {
 
   return (
     <section id="pricing" className="py-32 bg-[#1a1a1a]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-3 sm:px-5 md:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-20">
           <div className="inline-block mb-4 px-4 py-2 border border-[#9B7E3A]/30 bg-[#9B7E3A]/5">
@@ -89,22 +89,29 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="overflow-x-auto md:overflow-visible pt-6 md:pt-0">
-          <div className="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-8 min-w-[900px] md:min-w-0">
+        {/* Pricing Cards: full-width column on mobile; 3-col from md up */}
+        <div className="pt-6 md:pt-0">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
             {plans.map((plan, index) => (
               <div
                 key={index}
-                className={`relative p-6 md:p-8 bg-[#2a2a2a] border transition-all duration-300 ${
+                className={`relative bg-[#2a2a2a] border transition-all duration-300 ${
                   plan.highlighted
-                    ? 'border-[#9B7E3A] shadow-2xl shadow-[#9B7E3A]/20 md:scale-105'
-                    : 'border-[#9B7E3A]/10 hover:border-[#9B7E3A]/30'
+                    ? "border-[#9B7E3A] p-6 shadow-2xl shadow-[#9B7E3A]/20 md:scale-105 md:p-8 md:pt-10"
+                    : "border-[#9B7E3A]/10 p-6 hover:border-[#9B7E3A]/30 md:p-8"
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#9B7E3A] text-[#1a1a1a] text-sm tracking-wider">
-                    MOST POPULAR
-                  </div>
+                  <>
+                    <div className="mb-4 text-center md:hidden">
+                      <span className="inline-block bg-[#9B7E3A] px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-[#1a1a1a]">
+                        Most popular
+                      </span>
+                    </div>
+                    <div className="absolute -top-4 left-1/2 z-10 hidden -translate-x-1/2 bg-[#9B7E3A] px-4 py-1 text-sm font-medium uppercase tracking-wider text-[#1a1a1a] md:block">
+                      Most popular
+                    </div>
+                  </>
                 )}
 
                 <div className="text-center mb-8">

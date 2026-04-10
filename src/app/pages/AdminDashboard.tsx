@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Search,
   Users,
   TrendingUp,
-  Calendar,
   Phone,
   Mail,
   MessageSquare,
@@ -12,9 +11,10 @@ import {
   Clock,
   X,
   UserPlus,
-  Wallet,
-  Menu,
+  Plus,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { AdminSidebar } from "../components/AdminSidebar";
 import { AdminCalendar } from "../components/AdminCalendar";
 import { AdminFinances } from "../components/AdminFinances";
 import { useInquiries, type Inquiry } from "../contexts/InquiryContext";
@@ -44,7 +44,38 @@ interface Client {
   total_sessions_in_package: number;
 }
 
+function packageFieldDefaults(pkg: string): {
+  package_price: string;
+  sessions_remaining: number;
+  total_sessions_in_package: number;
+} {
+  if (pkg === "Elite Evaluation") {
+    return { package_price: "375", sessions_remaining: 1, total_sessions_in_package: 1 };
+  }
+  if (pkg === "Elite") {
+    return { package_price: "2500", sessions_remaining: 10, total_sessions_in_package: 10 };
+  }
+  return { package_price: "", sessions_remaining: 0, total_sessions_in_package: 0 };
+}
+
+function emptyNewClientForm() {
+  const d = packageFieldDefaults("Elite");
+  return {
+    email: "",
+    first_name: "",
+    last_name: "",
+    phone: "",
+    package: "Elite",
+    package_price: d.package_price,
+    sessions_remaining: d.sessions_remaining,
+    total_sessions_in_package: d.total_sessions_in_package,
+    member_since: new Date().toISOString().slice(0, 10),
+  };
+}
+
 export function AdminDashboard() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const { inquiries, updateInquiryStatus, refetchInquiries, inquiryUpdateError, clearInquiryUpdateError } =
     useInquiries();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,11 +84,14 @@ export function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active">("all");
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsReady, setClientsReady] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [addClientLoading, setAddClientLoading] = useState(false);
+  const [addClientFeedback, setAddClientFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [newClientForm, setNewClientForm] = useState(() => emptyNewClientForm());
 
   const rawTab = searchParams.get("tab");
   const activeTab = normalizeAdminTab(rawTab);
@@ -76,7 +110,7 @@ export function AdminDashboard() {
     }
   }, [rawTab, setSearchParams]);
 
-  useEffect(() => {
+  const fetchClients = useCallback(() => {
     setClientsReady(false);
     api
       .listAdminClients()
@@ -103,18 +137,18 @@ export function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  useEffect(() => {
     if (activeTab === "inquiries") {
       void refetchInquiries();
     }
   }, [activeTab, refetchInquiries]);
 
-  function goToTab(tab: AdminSection) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("tab", tab);
-      return next;
-    });
-    setSidebarOpen(false);
+  function handleLogout() {
+    logout();
+    navigate("/");
   }
 
   const filteredClients = clients.filter(client => {
@@ -181,6 +215,59 @@ export function AdminDashboard() {
     setInviteFeedback(null);
   }
 
+  function openAddClientModal() {
+    setAddClientFeedback(null);
+    setNewClientForm(emptyNewClientForm());
+    setShowAddClientModal(true);
+  }
+
+  function closeAddClientModal() {
+    if (addClientLoading) return;
+    setShowAddClientModal(false);
+    setAddClientFeedback(null);
+  }
+
+  async function handleCreateClient(e: React.FormEvent) {
+    e.preventDefault();
+    setAddClientFeedback(null);
+    const email = newClientForm.email.trim();
+    if (!email) {
+      setAddClientFeedback({ type: "err", text: "Email is required." });
+      return;
+    }
+    setAddClientLoading(true);
+    try {
+      const payload: Record<string, unknown> = {
+        email,
+        first_name: newClientForm.first_name.trim() || undefined,
+        last_name: newClientForm.last_name.trim() || undefined,
+        phone: newClientForm.phone.trim() || undefined,
+        package: newClientForm.package,
+        sessions_completed: 0,
+        all_time_sessions: 0,
+        sessions_remaining: Math.max(0, Math.floor(Number(newClientForm.sessions_remaining)) || 0),
+        total_sessions_in_package: Math.max(0, Math.floor(Number(newClientForm.total_sessions_in_package)) || 0),
+      };
+      if (newClientForm.member_since.trim()) {
+        payload.member_since = newClientForm.member_since.trim();
+      }
+      if (newClientForm.package_price.trim()) {
+        payload.package_price = newClientForm.package_price.trim();
+      }
+      await api.createAdminClient(payload);
+      await fetchClients();
+      setShowAddClientModal(false);
+      setNewClientForm(emptyNewClientForm());
+    } catch (err) {
+      setAddClientFeedback({
+        type: "err",
+        text: err instanceof Error ? err.message : "Could not create client.",
+      });
+    } finally {
+      setAddClientLoading(false);
+    }
+  }
+
   const financeClientsForProps = clients.map((c) => ({
     id: c.id,
     package_price: c.package_price,
@@ -191,93 +278,12 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-0 lg:flex-row lg:items-start lg:gap-8">
-        <div className="mb-4 flex items-center justify-between lg:hidden">
-          <button
-            type="button"
-            aria-expanded={sidebarOpen}
-            aria-controls="admin-sidebar"
-            onClick={() => setSidebarOpen((o) => !o)}
-            className="inline-flex items-center gap-2 border border-[#3a3a3a] bg-[#2a2a2a] px-4 py-2 text-sm uppercase tracking-wider text-white hover:border-[#9B7E3A]/40"
-          >
-            <Menu className="h-5 w-5 shrink-0" aria-hidden />
-            Menu
-          </button>
-        </div>
-
-        {sidebarOpen && (
-          <button
-            type="button"
-            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
-            aria-label="Close menu"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        <aside
-          id="admin-sidebar"
-          className={`fixed left-0 top-28 z-50 flex h-[calc(100dvh-7rem)] w-60 max-w-[85vw] flex-col border border-[#3a3a3a] bg-[#2a2a2a] p-3 shadow-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-auto lg:max-h-none lg:min-h-[min-content] lg:translate-x-0 lg:shadow-none lg:shrink-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          }`}
-        >
-          <nav className="flex flex-col gap-1 overflow-y-auto" aria-label="Admin sections">
-            <button
-              type="button"
-              onClick={() => goToTab("calendar")}
-              className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
-                activeTab === "calendar"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
-              }`}
-            >
-              <Calendar className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1">Schedule calendar</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => goToTab("clients")}
-              className={`relative flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
-                activeTab === "clients"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
-              }`}
-            >
-              <Users className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1">Client management</span>
-              {lowSessionsCount > 0 && (
-                <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{lowSessionsCount}</span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => goToTab("inquiries")}
-              className={`relative flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
-                activeTab === "inquiries"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
-              }`}
-            >
-              <MessageSquare className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1">Inquiries</span>
-              {stats.newInquiries > 0 && (
-                <span className="shrink-0 rounded-full bg-[#9B7E3A] px-2 py-0.5 text-xs text-[#1a1a1a]">
-                  {stats.newInquiries}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => goToTab("finances")}
-              className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-wider transition-colors ${
-                activeTab === "finances"
-                  ? "bg-[#9B7E3A] text-[#1a1a1a]"
-                  : "text-[#9B9B9B] hover:bg-[#9B7E3A]/10 hover:text-white"
-              }`}
-            >
-              <Wallet className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1">Finances</span>
-            </button>
-          </nav>
-        </aside>
+        <AdminSidebar
+          activeSection={activeTab}
+          lowSessionsCount={lowSessionsCount}
+          newInquiriesCount={stats.newInquiries}
+          onLogout={handleLogout}
+        />
 
         <main className="min-w-0 flex-1">
           <div className="mx-auto max-w-7xl">
@@ -344,41 +350,51 @@ export function AdminDashboard() {
           <div>
             {/* Search and Filter Bar */}
             <div className="bg-[#2a2a2a] p-6 border border-[#3a3a3a] mb-8">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9B9B9B]" />
-                  <input
-                    type="text"
-                    placeholder="Search by name or email..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#9B9B9B] focus:outline-none focus:border-[#9B7E3A]"
-                  />
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:flex-1 md:items-center">
+                  <div className="flex-1 relative min-w-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9B9B9B]" />
+                    <input
+                      type="text"
+                      placeholder="Search by name or email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#9B9B9B] focus:outline-none focus:border-[#9B7E3A]"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFilterStatus("all")}
+                      className={`px-4 py-2 text-sm ${
+                        filterStatus === "all"
+                          ? "bg-[#9B7E3A] text-white"
+                          : "bg-[#1a1a1a] text-[#9B9B9B] border border-[#3a3a3a]"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterStatus("active")}
+                      className={`px-4 py-2 text-sm ${
+                        filterStatus === "active"
+                          ? "bg-[#9B7E3A] text-white"
+                          : "bg-[#1a1a1a] text-[#9B9B9B] border border-[#3a3a3a]"
+                      }`}
+                    >
+                      Active
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFilterStatus("all")}
-                    className={`px-4 py-2 text-sm ${
-                      filterStatus === "all"
-                        ? "bg-[#9B7E3A] text-white"
-                        : "bg-[#1a1a1a] text-[#9B9B9B] border border-[#3a3a3a]"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterStatus("active")}
-                    className={`px-4 py-2 text-sm ${
-                      filterStatus === "active"
-                        ? "bg-[#9B7E3A] text-white"
-                        : "bg-[#1a1a1a] text-[#9B9B9B] border border-[#3a3a3a]"
-                    }`}
-                  >
-                    Active
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={openAddClientModal}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors"
+                >
+                  <Plus className="w-5 h-5" aria-hidden />
+                  Add client
+                </button>
               </div>
             </div>
 
@@ -682,6 +698,213 @@ export function AdminDashboard() {
           </div>
         </main>
       </div>
+
+      {showAddClientModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => closeAddClientModal()}
+          onKeyDown={(ev) => ev.key === "Escape" && closeAddClientModal()}
+          role="presentation"
+        >
+          <div
+            className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#2a2a2a] border border-[#9B7E3A]/30 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-client-title"
+          >
+            <button
+              type="button"
+              onClick={() => closeAddClientModal()}
+              disabled={addClientLoading}
+              className="absolute top-4 right-4 text-[#9B9B9B] hover:text-white transition-colors disabled:opacity-40"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center gap-3 mb-2">
+                <Users className="w-8 h-8 text-[#9B7E3A] shrink-0" aria-hidden />
+                <h2 id="add-client-title" className="text-xl text-white font-medium pr-8">
+                  Add client
+                </h2>
+              </div>
+              <p className="text-[#9B9B9B] text-sm mb-6 leading-relaxed">
+                Creates a portal account with a generated password. Use &quot;Forgot password&quot; on the login page or
+                edit the client to set a known password.
+              </p>
+
+              <form onSubmit={handleCreateClient} className="space-y-4">
+                <div>
+                  <label htmlFor="add-client-email" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Email <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    id="add-client-email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={newClientForm.email}
+                    onChange={(e) => setNewClientForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:outline-none focus:border-[#9B7E3A]"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-client-first" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                      First name
+                    </label>
+                    <input
+                      id="add-client-first"
+                      type="text"
+                      autoComplete="given-name"
+                      value={newClientForm.first_name}
+                      onChange={(e) => setNewClientForm((f) => ({ ...f, first_name: e.target.value }))}
+                      className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-client-last" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                      Last name
+                    </label>
+                    <input
+                      id="add-client-last"
+                      type="text"
+                      autoComplete="family-name"
+                      value={newClientForm.last_name}
+                      onChange={(e) => setNewClientForm((f) => ({ ...f, last_name: e.target.value }))}
+                      className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="add-client-phone" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Phone
+                  </label>
+                  <input
+                    id="add-client-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    value={newClientForm.phone}
+                    onChange={(e) => setNewClientForm((f) => ({ ...f, phone: e.target.value }))}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="add-client-package" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Package
+                  </label>
+                  <select
+                    id="add-client-package"
+                    value={newClientForm.package}
+                    onChange={(e) => {
+                      const pkg = e.target.value;
+                      setNewClientForm((f) => ({
+                        ...f,
+                        package: pkg,
+                        ...packageFieldDefaults(pkg),
+                      }));
+                    }}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                  >
+                    <option value="Elite Evaluation">Elite Evaluation</option>
+                    <option value="Elite">Elite</option>
+                    <option value="VIP">VIP</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-client-remaining" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                      Sessions remaining
+                    </label>
+                    <input
+                      id="add-client-remaining"
+                      type="number"
+                      min={0}
+                      value={newClientForm.sessions_remaining}
+                      onChange={(e) =>
+                        setNewClientForm((f) => ({ ...f, sessions_remaining: parseInt(e.target.value, 10) || 0 }))
+                      }
+                      className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-client-total" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                      Total in package
+                    </label>
+                    <input
+                      id="add-client-total"
+                      type="number"
+                      min={0}
+                      value={newClientForm.total_sessions_in_package}
+                      onChange={(e) =>
+                        setNewClientForm((f) => ({
+                          ...f,
+                          total_sessions_in_package: parseInt(e.target.value, 10) || 0,
+                        }))
+                      }
+                      className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="add-client-price" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Package price (optional)
+                  </label>
+                  <input
+                    id="add-client-price"
+                    type="text"
+                    value={newClientForm.package_price}
+                    onChange={(e) => setNewClientForm((f) => ({ ...f, package_price: e.target.value }))}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white placeholder-[#6b6b6b] focus:outline-none focus:border-[#9B7E3A]"
+                    placeholder="e.g. 375 or $2,500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="add-client-since" className="block text-[#9B9B9B] text-xs uppercase tracking-wider mb-2">
+                    Member since
+                  </label>
+                  <input
+                    id="add-client-since"
+                    type="date"
+                    value={newClientForm.member_since}
+                    onChange={(e) => setNewClientForm((f) => ({ ...f, member_since: e.target.value }))}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-[#9B7E3A]"
+                  />
+                </div>
+                {addClientFeedback && (
+                  <p
+                    className={`text-sm ${addClientFeedback.type === "ok" ? "text-green-400" : "text-red-400"}`}
+                    role={addClientFeedback.type === "err" ? "alert" : undefined}
+                  >
+                    {addClientFeedback.text}
+                  </p>
+                )}
+                <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => closeAddClientModal()}
+                    disabled={addClientLoading}
+                    className="px-4 py-3 text-[#9B9B9B] text-sm uppercase tracking-wider hover:text-white transition-colors disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addClientLoading}
+                    className="px-6 py-3 bg-[#9B7E3A] text-[#1a1a1a] text-sm font-medium uppercase tracking-wider hover:bg-[#B8963E] transition-colors disabled:opacity-50"
+                  >
+                    {addClientLoading ? "Creating…" : "Create client"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showInviteModal && (
         <div

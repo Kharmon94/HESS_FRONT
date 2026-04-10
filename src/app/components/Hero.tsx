@@ -51,7 +51,7 @@ export function Hero() {
             <div className="text-[#6b6b6b]">Years of Training</div>
           </div>
           <div className="border-t border-[#9B7E3A]/30 pt-6">
-            <div className="text-4xl md:text-5xl text-[#9B7E3A] mb-2">500+</div>
+            <div className="text-4xl md:text-5xl text-[#9B7E3A] mb-2">2000+</div>
             <div className="text-[#6b6b6b]">Elite Members</div>
           </div>
         </div>

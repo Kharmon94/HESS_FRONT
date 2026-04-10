@@ -4,7 +4,9 @@ import { Home } from "./pages/Home";
 import { About } from "./pages/About";
 import { ClientPortalPage } from "./pages/ClientPortalPage";
 import { PortalDashboard } from "./pages/PortalDashboard";
+import { PortalBilling } from "./pages/PortalBilling";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminSettings } from "./pages/AdminSettings";
 import { ClientProfile } from "./pages/ClientProfile";
 import { ClientEdit } from "./pages/ClientEdit";
 import { ResetPassword } from "./pages/ResetPassword";
@@ -28,6 +30,14 @@ export const router = createBrowserRouter([
         Component: ClientPortalPage,
       },
       {
+        path: "portal/dashboard/billing",
+        element: (
+          <RequireAuth>
+            <PortalBilling />
+          </RequireAuth>
+        ),
+      },
+      {
         path: "portal/dashboard",
         element: (
           <RequireAuth>
@@ -40,6 +50,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAdmin>
             <AdminDashboard />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "admin/settings",
+        element: (
+          <RequireAdmin>
+            <AdminSettings />
           </RequireAdmin>
         ),
       },

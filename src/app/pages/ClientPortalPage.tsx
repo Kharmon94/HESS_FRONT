@@ -22,7 +22,7 @@ export function ClientPortalPage() {
   const { login } = useAuth();
 
   const packages = [
-    { id: "elite-evaluation", name: "Elite Evaluation", price: "$350 one-time" },
+    { id: "elite-evaluation", name: "Elite Evaluation", price: "$375 one-time" },
     { id: "elite", name: "Elite", price: "$2,500 for 10-pack" },
     { id: "vip", name: "VIP", price: "Custom pricing - Call for details" }
   ];
@@ -44,7 +44,7 @@ export function ClientPortalPage() {
 
       const selectedPkg = packages.find((p) => p.id === selectedPackage);
       const packageName = selectedPkg?.name || "Elite Evaluation";
-      const packagePrice = selectedPkg?.price || "$350 one-time";
+      const packagePrice = selectedPkg?.price || "$375 one-time";
 
       let sessionsTotal = 1;
       let sessionsRemaining = 1;

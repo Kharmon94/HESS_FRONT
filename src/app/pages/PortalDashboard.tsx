@@ -1,5 +1,5 @@
 import { Calendar, CheckCircle, Clock, User, CreditCard, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Session } from "../data/sessions";
 import { BookingModal } from "../components/BookingModal";
@@ -8,8 +8,11 @@ import { api } from "@/services/api";
 
 export function PortalDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentUser, logout, refreshUser } = useAuth();
   const [showAccountInfo, setShowAccountInfo] = useState(false);
+  const isProfileView = searchParams.get("tab") === "profile";
+  const showAccountPanel = showAccountInfo || isProfileView;
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +48,12 @@ export function PortalDashboard() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "profile") {
+      setShowAccountInfo(true);
+    }
+  }, [searchParams]);
 
   /** Awaiting admin approval (§2 Calendar note) — shown in dedicated module, not mixed into upcoming list. */
   const pendingBookingSessions = useMemo(() => {
@@ -182,18 +191,37 @@ export function PortalDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] py-24">
+    <div className="min-h-screen bg-[#1a1a1a] pt-28 pb-16">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Personalized Header */}
         <div className="mb-12 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl md:text-5xl text-white mb-2">
-              {currentUser.firstName} {currentUser.lastName} <span className="text-[#9B7E3A]">Kaboom Portal</span>
+              {isProfileView ? (
+                <>
+                  Profile <span className="text-[#9B7E3A]">Kaboom Portal</span>
+                </>
+              ) : (
+                <>
+                  {currentUser.firstName} {currentUser.lastName}{" "}
+                  <span className="text-[#9B7E3A]">Kaboom Portal</span>
+                </>
+              )}
             </h1>
-            <p className="text-[#6b6b6b]">Member since {currentUser.memberSince}</p>
+            <p className="text-[#6b6b6b]">
+              {isProfileView ? "Account and membership details" : `Member since ${currentUser.memberSince}`}
+            </p>
           </div>
-          <div className="flex gap-3">
+          <div className="hidden gap-3 lg:flex">
+            <Link
+              to="/portal/dashboard/billing"
+              className="px-6 py-3 border-2 border-[#9B7E3A] text-[#9B7E3A] hover:bg-[#9B7E3A]/10 transition-all duration-300 flex items-center gap-2"
+            >
+              <CreditCard className="w-5 h-5" />
+              Billing
+            </Link>
             <button
+              type="button"
               onClick={() => setShowAccountInfo(!showAccountInfo)}
               className="px-6 py-3 border-2 border-[#9B7E3A] text-[#9B7E3A] hover:bg-[#9B7E3A]/10 transition-all duration-300 flex items-center gap-2"
             >
@@ -201,6 +229,7 @@ export function PortalDashboard() {
               Account Info
             </button>
             <button
+              type="button"
               onClick={handleLogout}
               className="px-6 py-3 border-2 border-[#9B7E3A] text-[#9B7E3A] hover:bg-[#9B7E3A]/10 transition-all duration-300"
             >
@@ -230,7 +259,7 @@ export function PortalDashboard() {
         )}
 
         {/* Account Information Panel */}
-        {showAccountInfo && (
+        {showAccountPanel && (
           <div className="mb-12">
             <div className="bg-[#2a2a2a] border border-[#9B7E3A]/20 p-8">
               <div className="flex items-center justify-between mb-6">
@@ -239,7 +268,11 @@ export function PortalDashboard() {
                   <h2 className="text-3xl text-white">Account Information</h2>
                 </div>
                 <button
-                  onClick={() => setShowAccountInfo(false)}
+                  type="button"
+                  onClick={() => {
+                    setShowAccountInfo(false);
+                    if (isProfileView) navigate("/portal/dashboard");
+                  }}
                   className="text-[#6b6b6b] hover:text-white transition-colors"
                 >
                   ✕
@@ -416,7 +449,7 @@ export function PortalDashboard() {
           </div>
         )}
 
-        {pendingBookingSessions.length > 0 && (
+        {!isProfileView && pendingBookingSessions.length > 0 && (
           <div className="mb-10 border border-orange-500/40 bg-orange-950/20 p-6 md:p-8">
             <h2 className="text-2xl text-white mb-2 flex items-center gap-2">
               <Clock className="w-7 h-7 text-orange-400" />
@@ -451,6 +484,8 @@ export function PortalDashboard() {
           </div>
         )}
 
+        {!isProfileView && (
+        <>
         {/* Sessions Overview - Side by Side */}
         <div className="mb-12 grid lg:grid-cols-2 gap-8">
           {/* All Time Sessions Section */}
@@ -597,6 +632,8 @@ export function PortalDashboard() {
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Booking Modal */}
